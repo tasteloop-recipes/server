@@ -9,7 +9,7 @@ export default tseslint.config(
     ignores: ['eslint.config.mjs'],
   },
   eslint.configs.recommended,
-  ...tseslint.configs.recommendedTypeChecked,
+  ...tseslint.configs.all,
   eslintPluginPrettierRecommended,
   {
     languageOptions: {
@@ -26,6 +26,12 @@ export default tseslint.config(
   },
   {
     rules: {
+      '@typescript-eslint/prefer-readonly-parameter-types': 'off',
+      '@typescript-eslint/parameter-properties': 'off',
+      '@typescript-eslint/class-methods-use-this': 'off',
+      '@typescript-eslint/explicit-member-accessibility': 'off',
+      '@typescript-eslint/no-extraneous-class': 'off',
+      '@typescript-eslint/no-magic-numbers': 'off',
       'prettier/prettier': ['error', { endOfLine: 'auto' }],
     },
   },
