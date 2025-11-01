@@ -1,0 +1,131 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+      POSTGRES_DB: appdb
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U app']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  valkey:
+    image: valkey/valkey:7-alpine
+    ports:
+      - '6379:6379'
+    volumes:
+      - valkey_data:/data
+    healthcheck:
+      test: ['CMD', 'valkey-cli', 'ping']
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  minio:
+    image: minio/minio:latest
+    environment:
+      MINIO_ROOT_USER: minio
+      MINIO_ROOT_PASSWORD: minio12345
+    ports:
+      - '9000:9000'
+      - '9001:9001'
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:9000/minio/health/live']
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # Create bucket in MinIO on startup
+  minio-setup:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set myminio http://minio:9000 minio minio12345;
+      mc mb myminio/recipes-dev || true;
+      mc anonymous set public myminio/recipes-dev;
+      "
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: npm run start:dev
+    environment:
+      NODE_ENV: development
+      PORT: 8080
+      DATABASE_URL: postgresql://app:app@db:5432/appdb
+      REDIS_HOST: valkey
+      REDIS_PORT: 6379
+      REDIS_URL: redis://valkey:6379
+      S3_ENDPOINT: http://minio:9000
+      S3_BUCKET: recipes-dev
+      S3_ACCESS_KEY_ID: minio
+      S3_SECRET_ACCESS_KEY: minio12345
+      S3_FORCE_PATH_STYLE: 'true'
+      S3_REGION: us-east-1
+      JWT_SECRET: devsecret
+      ENABLE_DEMO: 'true'
+      CORS_ORIGINS: http://localhost:5173,http://localhost:3000
+      USE_REDIS_PUBSUB: 'false'
+    ports:
+      - '8080:8080'
+    volumes:
+      - .:/app
+      - /app/node_modules
+    depends_on:
+      db:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      minio-setup:
+        condition: service_completed_successfully
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: npm run start:worker
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://app:app@db:5432/appdb
+      REDIS_HOST: valkey
+      REDIS_PORT: 6379
+      REDIS_URL: redis://valkey:6379
+      S3_ENDPOINT: http://minio:9000
+      S3_BUCKET: recipes-dev
+      S3_ACCESS_KEY_ID: minio
+      S3_SECRET_ACCESS_KEY: minio12345
+      S3_FORCE_PATH_STYLE: 'true'
+      S3_REGION: us-east-1
+      JWT_SECRET: devsecret
+    volumes:
+      - .:/app
+      - /app/node_modules
+    depends_on:
+      db:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  valkey_data:
+  minio_data:
