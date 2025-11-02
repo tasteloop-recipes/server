@@ -12,3 +12,47 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+
+// ============================================================================
+// Example Models
+// ============================================================================
+// The models below are examples to demonstrate Prisma schema structure.
+// Replace or extend these models based on your application requirements.
+// ============================================================================
+
+/// User model representing application users
+/// @example
+/// const user = await prisma.user.create({
+///   data: {
+///     email: 'user@example.com',
+///     name: 'John Doe',
+///   }
+/// })
+model User {
+  /// Unique identifier for the user
+  id        String   @id @default(cuid())
+
+  /// User's email address (unique)
+  email     String   @unique
+
+  /// User's display name
+  name      String?
+
+  /// Timestamp when the user was created
+  createdAt DateTime @default(now())
+
+  /// Timestamp when the user was last updated
+  updatedAt DateTime @updatedAt
+
+  @@map("users")
+}
+
+// ============================================================================
+// To create your first migration, run:
+// npm run prisma:migrate
+//
+// This will:
+// 1. Create a migration file in prisma/migrations/
+// 2. Apply the migration to your database
+// 3. Generate the Prisma Client with your models
+// ============================================================================

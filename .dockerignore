@@ -6,6 +6,8 @@ build
 .gitignore
 .env
 .env.*
+.env.local
+.env.*.local
 !.env.example
 README.md
 .DS_Store
@@ -17,3 +19,7 @@ coverage
 .temp
 .tmp
 generated/prisma
+secrets/*.txt
+docker-compose.yml
+Dockerfile
+.claude

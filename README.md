@@ -31,6 +31,144 @@
 $ npm install
 ```
 
+## Environment Configuration
+
+### Local Development (without Docker)
+
+1. Copy the example environment file:
+   ```bash
+   cp .env.example .env
+   ```
+
+2. Update `.env` with your database credentials:
+   ```env
+   DATABASE_URL="postgresql://username:password@localhost:5432/database_name"
+   NODE_ENV=development
+   ```
+
+3. Ensure PostgreSQL is running locally on port 5432
+
+### Docker Development
+
+1. Set up Docker secrets:
+   ```bash
+   # Create the secrets directory (if not exists)
+   mkdir -p secrets
+
+   # Create secret files with your credentials
+   echo -n "your_db_user" > secrets/db_user.txt
+   echo -n "your_db_password" > secrets/db_password.txt
+   echo -n "your_db_name" > secrets/db_name.txt
+   ```
+
+   **Note:** Use `echo -n` to avoid adding newlines. See `secrets/README.md` for more details.
+
+2. Start the application with Docker:
+   ```bash
+   docker compose up
+   ```
+
+3. The application will be available at `http://localhost:3000`
+
+## Database Migrations
+
+### Running Migrations Locally
+
+When developing without Docker, run migrations from your terminal:
+
+```bash
+# Create a new migration
+npm run prisma:migrate
+
+# Deploy migrations (production)
+npm run prisma:migrate:prod
+
+# Generate Prisma Client
+npm run prisma:generate
+
+# Open Prisma Studio (database GUI)
+npm run prisma:studio
+
+# Format Prisma schema file
+npm run prisma:format
+```
+
+### Running Migrations in Docker
+
+When using Docker, you have two options:
+
+**Option 1: From host machine (recommended for development)**
+```bash
+# Ensure your .env file has DATABASE_URL pointing to localhost:5432
+npm run prisma:migrate
+```
+
+**Option 2: Inside the Docker container**
+```bash
+# Execute migration inside the running container
+docker exec -it tasteloop-server npm run prisma:migrate
+```
+
+### Migration Workflow
+
+1. **Development:**
+   - Create and edit your Prisma models in `prisma/schema.prisma`
+   - Run `npm run prisma:migrate` to create and apply migrations
+   - The migration files will be created in `prisma/migrations/`
+   - Prisma Client will be automatically regenerated
+
+2. **Production:**
+   - Migrations should be run during deployment, not during Docker build
+   - Use `npm run prisma:migrate:prod` to apply pending migrations
+   - Never run `prisma migrate dev` in production
+
+3. **Best Practices:**
+   - Always review generated migration SQL before applying
+   - Test migrations on a staging environment first
+   - Keep migration files in version control
+   - Never edit migration files after they've been applied
+
+## Docker Commands
+
+### Starting the application
+
+```bash
+# Start all services
+docker compose up
+
+# Start in detached mode (background)
+docker compose up -d
+
+# Rebuild and start
+docker compose up --build
+
+# View logs
+docker compose logs -f
+```
+
+### Stopping the application
+
+```bash
+# Stop all services
+docker compose down
+
+# Stop and remove volumes (WARNING: deletes database data)
+docker compose down -v
+```
+
+### Accessing containers
+
+```bash
+# Access the app container
+docker exec -it tasteloop-server sh
+
+# Access the postgres container
+docker exec -it tasteloop-postgres sh
+
+# Connect to PostgreSQL database
+docker exec -it tasteloop-postgres psql -U $(cat secrets/db_user.txt) -d $(cat secrets/db_name.txt)
+```
+
 ## Compile and run the project
 
 ```bash
@@ -46,16 +184,67 @@ $ npm run start:prod
 
 ## Run tests
 
+### Unit Tests
+
+Unit tests mock external dependencies (like database connections) and test individual components in isolation:
+
 ```bash
-# unit tests
-$ npm run test
+# Run all unit tests
+npm run test
 
-# e2e tests
-$ npm run test:e2e
+# Run tests in watch mode
+npm run test:watch
 
-# test coverage
-$ npm run test:cov
+# Run tests with coverage report
+npm run test:cov
+
+# Debug tests
+npm run test:debug
 ```
+
+### Integration Tests (E2E)
+
+Integration tests verify the application works with real database connections. Ensure your database is running before executing these tests:
+
+```bash
+# Start the database with Docker
+docker compose up -d postgres
+
+# Run integration tests
+npm run test:e2e
+```
+
+**Note:** Integration tests require:
+- A running PostgreSQL database
+- Valid `DATABASE_URL` in your `.env` file
+- Database migrations applied: `npm run prisma:migrate`
+
+### Test Structure
+
+- **Unit Tests**: Located alongside source files (e.g., `*.spec.ts`)
+  - Mock external dependencies
+  - Fast execution
+  - Test business logic in isolation
+
+- **Integration Tests**: Located in `/test` directory (e.g., `*.e2e-spec.ts`)
+  - Test with real database
+  - Verify end-to-end workflows
+  - Test database connectivity and queries
+
+### PrismaService Tests
+
+The PrismaService includes comprehensive tests:
+
+**Unit Tests** (`src/prisma/prisma.service.spec.ts`):
+- Connection lifecycle (onModuleInit, onModuleDestroy)
+- Error handling for failed connections
+- Logging verification
+
+**Integration Tests** (`test/prisma.e2e-spec.ts`):
+- Real database connectivity
+- Query execution
+- Transaction support
+- Error handling with actual database
 
 ## Deployment
 
