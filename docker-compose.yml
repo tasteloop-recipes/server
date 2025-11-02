@@ -2,10 +2,12 @@ services:
   postgres:
     image: postgres:17-alpine
     container_name: tasteloop-postgres
+    env_file:
+      - .env
     environment:
-      POSTGRES_USER: tasteloop
-      POSTGRES_PASSWORD: tasteloop_dev_password
-      POSTGRES_DB: tasteloop
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     ports:
       - "5432:5432"
     volumes:
@@ -25,10 +27,12 @@ services:
     container_name: tasteloop-app
     ports:
       - "3000:3000"
+    env_file:
+      - .env
     environment:
-      NODE_ENV: development
-      DATABASE_URL: postgresql://tasteloop:tasteloop_dev_password@postgres:5432/tasteloop
-      PORT: 3000
+      NODE_ENV: ${NODE_ENV}
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      PORT: ${PORT}
     depends_on:
       postgres:
         condition: service_healthy
