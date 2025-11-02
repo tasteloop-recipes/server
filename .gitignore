@@ -22,6 +22,12 @@ coverage/
 *.swp
 *.swo
 *~
+# secrets
+/secrets
+
+# temp directory
+.temp
+.tmp
 
 # OS
 .DS_Store
