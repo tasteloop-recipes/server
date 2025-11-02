@@ -31,7 +31,51 @@
 $ npm install
 ```
 
-## Compile and run the project
+## Prisma & Database
+
+- Generate the Prisma client after updating the schema:
+
+```bash
+$ npm run prisma:generate
+```
+
+- Run development migrations (creates new migrations when schema changes):
+
+```bash
+$ npm run prisma:migrate
+```
+
+- Apply committed migrations without prompting (useful for CI/CD and Docker):
+
+```bash
+$ npm run prisma:migrate:prod
+```
+
+- Keep the schema formatting consistent:
+
+```bash
+$ npm run prisma:format      # writes changes
+$ npm run prisma:format:check # fails if formatting is required
+```
+
+- Launch Prisma Studio while developing:
+
+```bash
+$ npm run prisma:studio
+```
+
+> The default `.env.example` is configured for the local Postgres instance declared in `docker-compose.yml`. Update `DATABASE_URL` if your database differs.
+
+## Docker workflow
+
+```bash
+# start postgres and the NestJS app with hot reload + migrations
+$ docker compose up --build
+```
+
+The application container will install dependencies, generate the Prisma client, run pending migrations, and then start in watch mode. A healthy Postgres instance is required before the app starts.
+
+## Compile and run the project locally
 
 ```bash
 # development
@@ -56,19 +100,6 @@ $ npm run test:e2e
 # test coverage
 $ npm run test:cov
 ```
-
-## Deployment
-
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
-
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
-```
-
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
 
 ## Resources
 

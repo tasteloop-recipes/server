@@ -12,6 +12,9 @@ RUN npm ci
 # Copy source code
 COPY . .
 
+# Generate Prisma client
+RUN npm run prisma:generate
+
 # Build the application
 RUN npm run build
 
@@ -31,6 +34,7 @@ RUN npm ci --omit=dev
 
 # Copy built application from builder stage
 COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/prisma ./prisma
 
 # Expose the port
 EXPOSE 3000

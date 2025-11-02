@@ -1,3 +1,18 @@
+jest.mock('@prisma/client', () => {
+  class PrismaClientMock {
+    async $connect(): Promise<void> {
+      return Promise.resolve();
+    }
+
+    async $disconnect(): Promise<void> {
+      return Promise.resolve();
+    }
+  }
+
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  return { PrismaClient: PrismaClientMock };
+});
+
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
 import { AppModule } from './app.module';
