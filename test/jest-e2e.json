@@ -6,5 +6,16 @@
   "transform": {
     "^.+\\.(t|j)s$": "ts-jest"
   },
-  "coverageDirectory": "../coverage/e2e"
+  "coverageDirectory": "../coverage/e2e",
+  "collectCoverageFrom": [
+    "../src/**/*.(t|j)s"
+  ],
+  "coverageThreshold": {
+    "global": {
+      "branches": 70,
+      "functions": 70,
+      "lines": 70,
+      "statements": 70
+    }
+  }
 }
