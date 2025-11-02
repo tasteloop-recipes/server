@@ -69,6 +69,9 @@ jobs:
         uses: codecov/test-results-action@v1
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./junit/junit.xml
+          flags: unit-tests
+          verbose: true
 
   e2e-tests:
     runs-on: ubuntu-latest
@@ -97,3 +100,12 @@ jobs:
         with:
           name: e2e-test-results
           path: test/
+
+      - name: Upload e2e test results to Codecov
+        if: ${{ !cancelled() }}
+        uses: codecov/test-results-action@v1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./junit/junit.xml
+          flags: e2e-tests
+          verbose: true
