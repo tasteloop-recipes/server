@@ -1,0 +1,15 @@
+node_modules
+npm-debug.log
+dist
+coverage
+.env
+.git
+.gitignore
+.eslintignore
+.prettierignore
+README.md
+.editorconfig
+.eslintrc.js
+jest.config.js
+.junit
+junit

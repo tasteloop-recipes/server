@@ -1,0 +1,48 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: tasteloop-postgres
+    environment:
+      POSTGRES_USER: tasteloop
+      POSTGRES_PASSWORD: tasteloop_dev_password
+      POSTGRES_DB: tasteloop
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tasteloop -d tasteloop"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - tasteloop-network
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: tasteloop-app
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://tasteloop:tasteloop_dev_password@postgres:5432/tasteloop
+      PORT: 3000
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - .:/app
+      - /app/node_modules
+    command: sh -c "npm ci && npm run start:dev"
+    networks:
+      - tasteloop-network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+
+networks:
+  tasteloop-network:
+    driver: bridge
