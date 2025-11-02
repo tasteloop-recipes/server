@@ -58,6 +58,12 @@ jobs:
           name: unit-test-coverage
           path: coverage/
 
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          slug: tasteloop-recipes/server
+
   e2e-tests:
     runs-on: ubuntu-latest
     timeout-minutes: 10
