@@ -21,6 +21,12 @@
   <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
   [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
 
+## Build Status
+
+[![Lint](https://github.com/tasteloop-recipes/server/actions/workflows/lint.yml/badge.svg)](https://github.com/tasteloop-recipes/server/actions/workflows/lint.yml)
+[![Tests](https://github.com/tasteloop-recipes/server/actions/workflows/test.yml/badge.svg)](https://github.com/tasteloop-recipes/server/actions/workflows/test.yml)
+[![codecov](https://codecov.io/gh/tasteloop-recipes/server/branch/main/graph/badge.svg)](https://codecov.io/gh/tasteloop-recipes/server)
+
 ## Description
 
 [Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
