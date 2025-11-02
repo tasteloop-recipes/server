@@ -30,6 +30,7 @@ jobs:
       - run: npm run build
 
   unit-tests:
+    needs: [build]
     runs-on: ubuntu-latest
 
     steps:
@@ -60,6 +61,7 @@ jobs:
         if: always() && !cancelled()
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
+          flags: unit
 
       - name: Upload test results to Codecov
         if: always() && !cancelled()
@@ -95,3 +97,17 @@ jobs:
         run: npm run test:e2e:cov
         env:
           NODE_ENV: test
+
+      - name: Upload e2e coverage reports to Codecov
+        uses: codecov/codecov-action@v5
+        if: always() && !cancelled()
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          flags: e2e
+          files: ./coverage/e2e/lcov.info
+
+      - name: Upload e2e test results to Codecov
+        if: always() && !cancelled()
+        uses: codecov/test-results-action@v1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
