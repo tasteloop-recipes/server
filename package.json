@@ -67,7 +67,6 @@
     },
     "collectCoverageFrom": [
       "**/*.ts",
-      "**/*.js",
       "!**/*.spec.ts",
       "!**/*.test.ts"
     ],
