@@ -1,7 +1,7 @@
 {
   "name": "tasteloop-server",
   "version": "0.0.1",
-  "description": "",
+  "description": "A NestJS server application for the Tasteloop platform.",
   "author": "Luis Augusto <hello@luis.app>",
   "private": true,
   "license": "UNLICENSED",
@@ -19,7 +19,7 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --reporters=jest-junit --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "jest --config ./test/jest-e2e.json --reporters=default --reporters=jest-junit"
+    "test:e2e": "jest --config ./test/jest-e2e.json --reporters=default,jest-junit"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
