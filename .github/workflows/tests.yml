@@ -64,6 +64,12 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           slug: tasteloop-recipes/server
 
+      - name: Upload test results to Codecov
+        if: ${{ !cancelled() }}
+        uses: codecov/test-results-action@v1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+
   e2e-tests:
     runs-on: ubuntu-latest
     timeout-minutes: 10
