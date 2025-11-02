@@ -1,9 +1,9 @@
 import { AppService } from './app.service';
 
 describe('AppService', () => {
-  let appService: AppService;
+  let appService: AppService = new AppService();
 
-  beforeEach(async () => {
+  beforeEach(() => {
     appService = new AppService();
   });
 

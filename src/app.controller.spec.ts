@@ -6,7 +6,7 @@ import { AppService } from './app.service';
 describe('AppController', () => {
   let appController: AppController | undefined = undefined;
   let appService: AppService | undefined = undefined;
-  let module: TestingModule;
+  let module: TestingModule | undefined = undefined;
 
   beforeEach(async () => {
     module = await Test.createTestingModule({
@@ -19,7 +19,7 @@ describe('AppController', () => {
   });
 
   afterEach(async () => {
-    await module.close();
+    await module?.close();
   });
 
   describe('initialization', () => {
@@ -28,8 +28,10 @@ describe('AppController', () => {
     });
 
     it('should have getHello method', () => {
-      expect(appController?.getHello).toBeDefined();
-      expect(typeof appController?.getHello).toBe('function');
+      if (!appController) return;
+      const getHello = appController.getHello.bind(appController);
+      expect(getHello).toBeDefined();
+      expect(typeof getHello).toBe('function');
     });
 
     it('should have AppService injected', () => {
@@ -43,7 +45,8 @@ describe('AppController', () => {
     });
 
     it('should call AppService.getHello()', () => {
-      const spy = jest.spyOn(appService as AppService, 'getHello');
+      if (!appService) return;
+      const spy = jest.spyOn(appService, 'getHello' as const);
       appController?.getHello();
       expect(spy).toHaveBeenCalled();
       spy.mockRestore();

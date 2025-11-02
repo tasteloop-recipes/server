@@ -5,7 +5,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 
 describe('AppModule', () => {
-  let module: TestingModule;
+  let module: TestingModule | undefined = undefined;
 
   beforeEach(async () => {
     module = await Test.createTestingModule({
@@ -43,14 +43,14 @@ describe('AppModule', () => {
   });
 
   describe('module functionality', () => {
-    it('should have working controller and service', async () => {
-      const controller = module.get<AppController>(AppController);
-      const result = controller.getHello();
+    it('should have working controller and service', () => {
+      const controller = module?.get<AppController>(AppController);
+      const result = controller?.getHello();
       expect(result).toBe('Hello World!');
     });
   });
 
   afterEach(async () => {
-    await module.close();
+    await module?.close();
   });
 });
