@@ -25,6 +25,7 @@
 
 [![Lint](https://github.com/tasteloop-recipes/server/actions/workflows/lint.yml/badge.svg)](https://github.com/tasteloop-recipes/server/actions/workflows/lint.yml)
 [![Tests](https://github.com/tasteloop-recipes/server/actions/workflows/test.yml/badge.svg)](https://github.com/tasteloop-recipes/server/actions/workflows/test.yml)
+[![codecov](https://codecov.io/gh/tasteloop-recipes/server/branch/main/graph/badge.svg)](https://codecov.io/gh/tasteloop-recipes/server)
 
 ## Description
 
