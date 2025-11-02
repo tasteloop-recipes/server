@@ -28,10 +28,10 @@ describe('AppController', () => {
     });
 
     it('should have getHello method', () => {
-      if (!appController) return;
-      const getHello = appController.getHello.bind(appController);
-      expect(getHello).toBeDefined();
-      expect(typeof getHello).toBe('function');
+      expect(appController).toBeDefined();
+      if (appController) {
+        expect(typeof appController.getHello).toBe('function');
+      }
     });
 
     it('should have AppService injected', () => {
@@ -46,7 +46,7 @@ describe('AppController', () => {
 
     it('should call AppService.getHello()', () => {
       if (!appService) return;
-      const spy = jest.spyOn(appService, 'getHello' as const);
+      const spy = jest.spyOn(appService, 'getHello');
       appController?.getHello();
       expect(spy).toHaveBeenCalled();
       spy.mockRestore();
