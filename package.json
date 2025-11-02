@@ -17,7 +17,7 @@
     "lint:check": "eslint \"{src,apps,libs,test}/**/*.ts\"",
     "test": "jest",
     "test:watch": "jest --watch",
-    "test:cov": "jest --reporters=jest-junit --coverage",
+    "test:cov": "jest --reporters=default --reporters=jest-junit --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json"
   },
@@ -53,6 +53,12 @@
     "tsconfig-paths": "^4.2.0",
     "typescript": "^5.7.3",
     "typescript-eslint": "^8.20.0"
+  },
+  "jest-junit": {
+    "outputDirectory": "coverage",
+    "outputName": "junit.xml",
+    "classNameTemplate": "{classname}",
+    "titleTemplate": "{title}"
   },
   "jest": {
     "moduleFileExtensions": [
