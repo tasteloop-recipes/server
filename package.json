@@ -19,7 +19,7 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --reporters=jest-junit --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "jest --config ./test/jest-e2e.json"
+    "test:e2e": "jest --config ./test/jest-e2e.json --reporters=default --reporters=jest-junit"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
@@ -70,5 +70,13 @@
     ],
     "coverageDirectory": "../coverage",
     "testEnvironment": "node"
+  },
+  "jest-junit": {
+    "outputDirectory": "./junit",
+    "outputName": "junit.xml",
+    "classNameTemplate": "{classname}",
+    "titleTemplate": "{title}",
+    "ancestorSeparator": " › ",
+    "usePathAsTestSuite": true
   }
 }
