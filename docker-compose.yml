@@ -39,7 +39,7 @@ services:
     volumes:
       - .:/app
       - /app/node_modules
-    command: sh -c "npm ci && npm run start:dev"
+    command: sh -c "npm ci && npm run prisma:generate && npm run prisma:migrate:prod && npm run start:dev"
     networks:
       - tasteloop-network
     restart: unless-stopped
