@@ -10,4 +10,96 @@ datasource db {
 model User {
   id   String @id @default(uuid())
   name String
+  recipes Recipe[]
+}
+
+enum RecipeDifficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+enum MealType {
+  BREAKFAST
+  BRUNCH
+  LUNCH
+  DINNER
+  SNACK
+  DESSERT
+}
+
+enum Diet {
+  KETO
+  GLUTEN_FREE
+  VEGAN
+  VEGETARIAN
+  PALEO
+  PESCATARIAN
+  DAIRY_FREE
+  LOW_CARB
+  LOW_FAT
+  MEDITERRANEAN
+  WHOLE30
+}
+
+enum ProteinType {
+  PORK
+  TOFU
+  BEEF
+  CHICKEN
+  SEAFOOD
+  OTHER
+  NONE
+}
+
+model Recipe {
+  id              String         @id @default(uuid())
+  name            String
+  prompt          String
+  author          User?          @relation(fields: [authorId], references: [id])
+  authorId        String?
+  difficulty      RecipeDifficulty
+  mealTypes       MealType[]
+  countriesOfOrigin String[]     @default([])
+  diets           Diet[]         @default([])
+  allergies       String[]       @default([])
+  proteinType     ProteinType
+  prepTimeMinutes Int
+  cookTimeMinutes Int
+  description     String
+  ingredients     RecipeIngredient[]
+  preparation     String[]       @default([])
+  instructions    String[]       @default([])
+  servingSize     String
+  calories        Float
+  carbs           Float
+  fat             Float
+  protein         Float
+  fiber           Float
+  nutritionFacts  RecipeNutritionFact[]
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@index([authorId])
+}
+
+model RecipeIngredient {
+  id        String  @id @default(uuid())
+  recipe    Recipe  @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  recipeId  String
+  name      String
+  amount    String
+
+  @@index([recipeId])
+}
+
+model RecipeNutritionFact {
+  id        String  @id @default(uuid())
+  recipe    Recipe  @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  recipeId  String
+  label     String
+  value     Float
+  unit      String?
+
+  @@index([recipeId])
 }
