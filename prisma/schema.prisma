@@ -8,8 +8,8 @@ datasource db {
 }
 
 model User {
-  id   String @id @default(uuid())
-  name String
+  id      String   @id @default(uuid())
+  name    String
   recipes Recipe[]
 }
 
@@ -53,53 +53,53 @@ enum ProteinType {
 }
 
 model Recipe {
-  id              String         @id @default(uuid())
-  name            String
-  prompt          String
-  author          User?          @relation(fields: [authorId], references: [id])
-  authorId        String?
-  difficulty      RecipeDifficulty
-  mealTypes       MealType[]
-  countriesOfOrigin String[]     @default([])
-  diets           Diet[]         @default([])
-  allergies       String[]       @default([])
-  proteinType     ProteinType
-  prepTimeMinutes Int
-  cookTimeMinutes Int
-  description     String
-  ingredients     RecipeIngredient[]
-  preparation     String[]       @default([])
-  instructions    String[]       @default([])
-  servingSize     String
-  calories        Float
-  carbs           Float
-  fat             Float
-  protein         Float
-  fiber           Float
-  nutritionFacts  RecipeNutritionFact[]
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
+  id                String                @id @default(uuid())
+  name              String
+  prompt            String
+  author            User?                 @relation(fields: [authorId], references: [id])
+  authorId          String?
+  difficulty        RecipeDifficulty
+  mealTypes         MealType[]
+  countriesOfOrigin String[]              @default([])
+  diets             Diet[]                @default([])
+  allergies         String[]              @default([])
+  proteinType       ProteinType
+  prepTimeMinutes   Int
+  cookTimeMinutes   Int
+  description       String
+  ingredients       RecipeIngredient[]
+  preparation       String[]              @default([])
+  instructions      String[]              @default([])
+  servingSize       String
+  calories          Float
+  carbs             Float
+  fat               Float
+  protein           Float
+  fiber             Float
+  nutritionFacts    RecipeNutritionFact[]
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
 
   @@index([authorId])
 }
 
 model RecipeIngredient {
-  id        String  @id @default(uuid())
-  recipe    Recipe  @relation(fields: [recipeId], references: [id], onDelete: Cascade)
-  recipeId  String
-  name      String
-  amount    String
+  id       String @id @default(uuid())
+  recipe   Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  recipeId String
+  name     String
+  amount   String
 
   @@index([recipeId])
 }
 
 model RecipeNutritionFact {
-  id        String  @id @default(uuid())
-  recipe    Recipe  @relation(fields: [recipeId], references: [id], onDelete: Cascade)
-  recipeId  String
-  label     String
-  value     Float
-  unit      String?
+  id       String  @id @default(uuid())
+  recipe   Recipe  @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  recipeId String
+  label    String
+  value    Float
+  unit     String?
 
   @@index([recipeId])
 }
