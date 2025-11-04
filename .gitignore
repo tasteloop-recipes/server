@@ -43,4 +43,4 @@ npm-debug.log*
 temp/
 
 junit/
-.claude/settings.json
+.claude/settings.local.json
