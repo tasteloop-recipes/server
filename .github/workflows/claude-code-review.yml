@@ -17,7 +17,67 @@ concurrency:
   group: ${{ github.ref }}
 
 jobs:
+  gate:
+    name: Wait for all upstream workflows to succeed
+    runs-on: ubuntu-latest
+    outputs:
+      ready: ${{ steps.check.outputs.ready }}
+
+    steps:
+      - name: Ensure jq is available
+        run: |
+          if ! command -v jq >/dev/null; then
+            sudo apt-get update
+            sudo apt-get install -y jq
+          fi
+
+      - name: Check statuses for this commit (by workflow name)
+        id: check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+
+          # List the upstream WORKFLOW NAMES you require
+          required_workflows=("Code scanning results" "Tests and Build" "Lint Check", "CodeQL - Code Quality", "codecov")
+
+          # Fetch all workflows (to map name -> id)
+          workflows_json=$(gh api repos/$REPO/actions/workflows)
+
+          all_ok=true
+          for wf_name in "${required_workflows[@]}"; do
+            # Find workflow ID by name
+            wf_id=$(echo "$workflows_json" | jq -r --arg n "$wf_name" \
+              '.workflows[] | select(.name == $n) | .id' | head -n1)
+
+            if [[ -z "$wf_id" || "$wf_id" == "null" ]]; then
+              echo "Could not find a workflow named '$wf_name' in this repo."
+              all_ok=false
+              break
+            fi
+
+            # Get latest run of that workflow for THIS commit
+            run_json=$(gh api repos/$REPO/actions/workflows/$wf_id/runs \
+              -F head_sha="$SHA" -F per_page=1)
+
+            conclusion=$(echo "$run_json" | jq -r '.workflow_runs[0].conclusion // ""')
+            status=$(echo "$run_json" | jq -r '.workflow_runs[0].status // ""')
+
+            # If there's no run yet, or it isn’t completed/success → not ready
+            if [[ -z "$conclusion" || "$status" != "completed" || "$conclusion" != "success" ]]; then
+              echo "Workflow '$wf_name' not successful yet (status=$status, conclusion=$conclusion)."
+              all_ok=false
+              break
+            fi
+          done
+
+          echo "ready=$all_ok" >> "$GITHUB_OUTPUT"
   claude-review:
+    needs: gate
+    if: ${{ needs.gate.outputs.ready == 'true' }}
+
     # Optional: Filter by PR author
     # if: |
     #   github.event.pull_request.user.login == 'external-contributor' ||
