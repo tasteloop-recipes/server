@@ -25,6 +25,7 @@ jobs:
     permissions:
       actions: read
       contents: read
+    timeout-minutes: 5
     outputs:
       ready: ${{ steps.check.outputs.ready }}
 
@@ -95,6 +96,7 @@ jobs:
       pull-requests: read
       issues: read
       id-token: write
+    timeout-minutes: 5
 
     steps:
       - name: Checkout repository
