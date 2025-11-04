@@ -4,14 +4,7 @@ permissions: {}
 
 on:
   workflow_run:
-    workflows:
-      [
-        "Tests and Build",
-        "Lint Check",
-        "Code scanning results",
-        "CodeQL - Code Quality",
-        "codecov",
-      ]
+    workflows: ["Tests and Build", "Lint Check", "CodeQL"]
     types: [completed]
 
 concurrency:
