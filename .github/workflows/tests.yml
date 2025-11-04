@@ -2,7 +2,7 @@ name: Tests and Build
 
 concurrency:
   cancel-in-progress: true
-  group: ${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}
 
 on:
   pull_request:
