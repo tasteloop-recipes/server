@@ -8,6 +8,108 @@ datasource db {
 }
 
 model User {
-  id   String @id @default(uuid())
-  name String
+  id      String   @id @default(uuid())
+  name    String
+  recipes Recipe[]
+}
+
+enum RecipeDifficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+enum MealType {
+  BREAKFAST
+  BRUNCH
+  LUNCH
+  DINNER
+  SNACK
+  DESSERT
+}
+
+enum Diet {
+  KETO
+  GLUTEN_FREE
+  VEGAN
+  VEGETARIAN
+  PALEO
+  PESCATARIAN
+  DAIRY_FREE
+  LOW_CARB
+  LOW_FAT
+  MEDITERRANEAN
+  WHOLE30
+}
+
+enum ProteinType {
+  PORK
+  TOFU
+  BEEF
+  CHICKEN
+  SEAFOOD
+  OTHER
+}
+
+model Recipe {
+  id                 String                @id @default(uuid())
+  name               String
+  /// User-inputted prompt to generate the recipe with AI
+  prompt             String
+  /// Author can be null if recipe was generated in web demo, which doesn't require authentication
+  author             User?                 @relation(fields: [authorId], references: [id])
+  authorId           String?
+  difficulty         RecipeDifficulty
+  mealTypes          MealType[]
+  countriesOfOrigin  String[]              @default([])
+  diets              Diet[]                @default([])
+  allergies          String[]              @default([])
+  proteinType        ProteinType[]         @default([])
+  prepTimeMinutes    Int
+  cookTimeMinutes    Int
+  description        String                @db.Text
+  ingredients        RecipeIngredient[]
+  preparation        String[]              @default([])
+  instructions       String[]              @default([])
+  servingSize        String
+  nutritionFacts     RecipeNutritionFact[]
+  miscNutritionFacts MiscNutritionFact[]
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
+
+  @@index([authorId])
+}
+
+model RecipeIngredient {
+  id       String @id @default(uuid())
+  recipe   Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  recipeId String
+  name     String
+  amount   String
+
+  @@index([recipeId])
+}
+
+model RecipeNutritionFact {
+  id       String  @id @default(uuid())
+  recipe   Recipe  @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  recipeId String
+  calories Decimal @db.Decimal(10, 2)
+  carbs    Decimal @db.Decimal(10, 2)
+  fat      Decimal @db.Decimal(10, 2)
+  protein  Decimal @db.Decimal(10, 2)
+  fiber    Decimal @db.Decimal(10, 2)
+
+  @@index([recipeId])
+}
+
+model MiscNutritionFact {
+  id       String  @id @default(uuid())
+  recipe   Recipe  @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  recipeId String
+  label    String
+  value    Decimal @db.Decimal(10, 2)
+  unit     String?
+
+  @@index([recipeId])
 }
