@@ -1,5 +1,7 @@
 name: Claude Code Review
 
+permissions: {}
+
 on:
   workflow_run:
     workflows:
@@ -20,6 +22,9 @@ jobs:
   gate:
     name: Wait for all upstream workflows to succeed
     runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
     outputs:
       ready: ${{ steps.check.outputs.ready }}
 
@@ -41,7 +46,7 @@ jobs:
           set -euo pipefail
 
           # List the upstream WORKFLOW NAMES you require
-          required_workflows=("Code scanning results" "Tests and Build" "Lint Check", "CodeQL - Code Quality", "codecov")
+          required_workflows=("Tests and Build" "Lint Check" "CodeQL")
 
           # Fetch all workflows (to map name -> id)
           workflows_json=$(gh api repos/$REPO/actions/workflows)
