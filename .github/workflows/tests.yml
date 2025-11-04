@@ -1,5 +1,9 @@
 name: Tests and Build
 
+concurrency:
+  cancel-in-progress: true
+  group: ${{ github.ref }}
+
 on:
   pull_request:
     types: [opened, synchronize, reopened]
