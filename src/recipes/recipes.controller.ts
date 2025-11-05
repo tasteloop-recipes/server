@@ -9,16 +9,13 @@ import {
   ParseIntPipe,
   Post,
   Query,
-  UseGuards,
 } from '@nestjs/common';
 import type { PaginatedRecipes } from './recipes.service';
 import { RecipesService } from './recipes.service';
 import { Recipe } from '@prisma/client';
 import { CreateRecipeDto } from './create-recipe.dto';
-import { RateLimitGuard } from './rate-limit.guard';
 
 @Controller('recipes')
-@UseGuards(RateLimitGuard)
 export class RecipesController {
   constructor(private readonly recipesService: RecipesService) {}
 

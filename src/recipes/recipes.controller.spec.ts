@@ -2,7 +2,6 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { MealType, RecipeDifficulty } from '@prisma/client';
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
-import { RateLimitGuard } from './rate-limit.guard';
 import { RecipesController } from './recipes.controller';
 import { RecipesService } from './recipes.service';
 
@@ -82,12 +81,7 @@ describe('RecipesController', () => {
           useValue: recipesServiceMock,
         },
       ],
-    })
-      .overrideGuard(RateLimitGuard)
-      .useValue({
-        canActivate: jest.fn(() => true),
-      })
-      .compile();
+    }).compile();
 
     controller = moduleRef.get<RecipesController>(RecipesController);
   });
@@ -277,14 +271,6 @@ describe('RecipesController', () => {
 
       expect(result).toEqual(createdRecipe);
       expect(recipesServiceMock.create).toHaveBeenCalledWith(complexPrompt);
-    });
-  });
-
-  describe('Rate Limiting', () => {
-    it('should have RateLimitGuard applied to the controller', () => {
-      expect(
-        Reflect.getMetadata('__guards__', RecipesController),
-      ).toBeDefined();
     });
   });
 });
