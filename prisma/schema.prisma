@@ -55,7 +55,7 @@ model Recipe {
   id                 String                @id @default(uuid())
   name               String
   /// User-inputted prompt to generate the recipe with AI
-  prompt             String
+  prompt             String                @db.VarChar(1000)
   /// Author can be null if recipe was generated in web demo, which doesn't require authentication
   author             User?                 @relation(fields: [authorId], references: [id])
   authorId           String?
