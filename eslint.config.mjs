@@ -33,6 +33,7 @@ export default tseslint.config(
       '@typescript-eslint/explicit-member-accessibility': 'off',
       '@typescript-eslint/no-extraneous-class': 'off',
       '@typescript-eslint/no-magic-numbers': 'off',
+      '@typescript-eslint/no-redeclare': 'off',
       'prettier/prettier': ['error', { endOfLine: 'auto' }],
     },
   },

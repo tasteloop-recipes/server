@@ -1,5 +1,6 @@
+/* eslint-disable-next-line @typescript-eslint/no-redeclare */
 import {
-  Body as BodyType,
+  Body,
   Controller,
   DefaultValuePipe,
   Get,
@@ -7,16 +8,16 @@ import {
   ParseIntPipe,
   Post,
   Query,
+  UseGuards,
 } from '@nestjs/common';
 import type { PaginatedRecipes } from './recipes.service';
 import { RecipesService } from './recipes.service';
 import { Recipe } from '@prisma/client';
-
-interface CreateRecipeBody {
-  prompt?: string;
-}
+import { CreateRecipeDto } from './create-recipe.dto';
+import { RateLimitGuard } from './rate-limit.guard';
 
 @Controller('recipes')
+@UseGuards(RateLimitGuard)
 export class RecipesController {
   constructor(private readonly recipesService: RecipesService) {}
 
@@ -34,7 +35,7 @@ export class RecipesController {
   }
 
   @Post()
-  async createRecipe(@BodyType() body: CreateRecipeBody): Promise<Recipe> {
+  async createRecipe(@Body() body: CreateRecipeDto): Promise<Recipe> {
     return this.recipesService.create(body.prompt);
   }
 }
