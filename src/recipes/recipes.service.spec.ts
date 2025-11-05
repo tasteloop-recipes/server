@@ -1,17 +1,49 @@
-import { Test, TestingModule } from '@nestjs/testing';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
-import { RecipesService } from './recipes.service';
-import { PrismaService } from '../prisma/prisma.service';
 import { MealType, RecipeDifficulty } from '@prisma/client';
+import type { TestingModule } from '@nestjs/testing';
+import { Test } from '@nestjs/testing';
+import { PrismaService } from '../prisma/prisma.service';
+import { RecipesService } from './recipes.service';
+
+interface ExpectedRecipeCreateData {
+  name: string;
+  prompt: string;
+  difficulty: RecipeDifficulty;
+  mealTypes: MealType[];
+  countriesOfOrigin: string[];
+  diets: string[];
+  allergies: string[];
+  proteinType: string[];
+  prepTimeMinutes: number;
+  cookTimeMinutes: number;
+  description: string;
+  preparation: string[];
+  instructions: string[];
+  servingSize: string;
+}
 
 describe('RecipesService', () => {
-  let service: RecipesService;
-  let prisma: PrismaService;
+  let moduleRef: TestingModule | null = null;
+  let service: RecipesService | null = null;
+  let transactionMock: jest.Mock = jest.fn();
+  let findManyMock: jest.Mock = jest.fn();
+  let countMock: jest.Mock = jest.fn();
+  let findUniqueMock: jest.Mock = jest.fn();
+  let createMock: jest.Mock = jest.fn();
+
+  const getService = (): RecipesService => {
+    if (!service) {
+      throw new Error('RecipesService not initialized');
+    }
+
+    return service;
+  };
 
   const mockRecipe = {
     id: '1',
     name: 'Test Recipe',
     prompt: 'Test prompt',
+    authorId: null,
     difficulty: RecipeDifficulty.MEDIUM,
     mealTypes: [MealType.DINNER],
     countriesOfOrigin: [],
@@ -28,41 +60,66 @@ describe('RecipesService', () => {
     updatedAt: new Date(),
   };
 
+  const buildExpectedRecipeData = (
+    prompt: string,
+  ): ExpectedRecipeCreateData => ({
+    name: 'Generated recipe (pending details)',
+    prompt,
+    difficulty: RecipeDifficulty.MEDIUM,
+    mealTypes: [MealType.DINNER],
+    countriesOfOrigin: [],
+    diets: [],
+    allergies: [],
+    proteinType: [],
+    prepTimeMinutes: 0,
+    cookTimeMinutes: 0,
+    description: 'Recipe details will be generated shortly.',
+    preparation: [],
+    instructions: [],
+    servingSize: 'To be determined',
+  });
+
   beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
+    transactionMock = jest.fn();
+    findManyMock = jest.fn();
+    countMock = jest.fn();
+    findUniqueMock = jest.fn();
+    createMock = jest.fn();
+
+    moduleRef = await Test.createTestingModule({
       providers: [
         RecipesService,
         {
           provide: PrismaService,
           useValue: {
-            $transaction: jest.fn(),
+            $transaction: transactionMock,
             recipe: {
-              findMany: jest.fn(),
-              count: jest.fn(),
-              findUnique: jest.fn(),
-              create: jest.fn(),
+              findMany: findManyMock,
+              count: countMock,
+              findUnique: findUniqueMock,
+              create: createMock,
             },
           },
         },
       ],
     }).compile();
 
-    service = module.get<RecipesService>(RecipesService);
-    prisma = module.get<PrismaService>(PrismaService);
+    service = moduleRef.get<RecipesService>(RecipesService);
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     jest.clearAllMocks();
+    service = null;
+    await moduleRef?.close();
+    moduleRef = null;
   });
 
   describe('findAll', () => {
     it('should return paginated recipes with default values', async () => {
       const mockRecipes = [mockRecipe];
-      jest
-        .spyOn(prisma, '$transaction')
-        .mockResolvedValueOnce([mockRecipes, 1]);
+      transactionMock.mockResolvedValueOnce([mockRecipes, 1]);
 
-      const result = await service.findAll(1, 10);
+      const result = await getService().findAll(1, 10);
 
       expect(result).toEqual({
         data: mockRecipes,
@@ -73,41 +130,32 @@ describe('RecipesService', () => {
           limit: 10,
         },
       });
-      expect(prisma.$transaction).toHaveBeenCalledWith([
-        expect.any(Promise),
-        expect.any(Promise),
-      ]);
+      expect(transactionMock).toHaveBeenCalledTimes(1);
     });
 
     it('should cap limit to 50', async () => {
       const mockRecipes = [mockRecipe];
-      jest
-        .spyOn(prisma, '$transaction')
-        .mockResolvedValueOnce([mockRecipes, 100]);
+      transactionMock.mockResolvedValueOnce([mockRecipes, 100]);
 
-      const result = await service.findAll(1, 100);
+      const result = await getService().findAll(1, 100);
 
       expect(result.meta.limit).toBe(50);
     });
 
     it('should handle invalid page number (should default to 1)', async () => {
       const mockRecipes = [mockRecipe];
-      jest
-        .spyOn(prisma, '$transaction')
-        .mockResolvedValueOnce([mockRecipes, 10]);
+      transactionMock.mockResolvedValueOnce([mockRecipes, 10]);
 
-      const result = await service.findAll(0, 10);
+      const result = await getService().findAll(0, 10);
 
       expect(result.meta.page).toBe(1);
     });
 
     it('should handle invalid limit (should default to 10)', async () => {
       const mockRecipes = [mockRecipe];
-      jest
-        .spyOn(prisma, '$transaction')
-        .mockResolvedValueOnce([mockRecipes, 10]);
+      transactionMock.mockResolvedValueOnce([mockRecipes, 10]);
 
-      const result = await service.findAll(1, -5);
+      const result = await getService().findAll(1, -5);
 
       expect(result.meta.limit).toBe(10);
     });
@@ -116,52 +164,53 @@ describe('RecipesService', () => {
       const mockRecipes = Array(50)
         .fill(null)
         .map((_, i) => ({ ...mockRecipe, id: String(i) }));
-      jest
-        .spyOn(prisma, '$transaction')
-        .mockResolvedValueOnce([mockRecipes, 150]);
+      transactionMock.mockResolvedValueOnce([mockRecipes, 150]);
 
-      const result = await service.findAll(1, 50);
+      const result = await getService().findAll(1, 50);
 
       expect(result.meta.totalPages).toBe(3);
     });
 
     it('should calculate skip correctly for pagination', async () => {
       const mockRecipes = [mockRecipe];
-      jest
-        .spyOn(prisma, '$transaction')
-        .mockResolvedValueOnce([mockRecipes, 20]);
+      transactionMock.mockResolvedValueOnce([mockRecipes, 20]);
+      findManyMock.mockResolvedValueOnce(mockRecipes);
 
-      await service.findAll(3, 10);
+      await getService().findAll(3, 10);
 
-      // The transaction should be called with skip = 20 (page 3, limit 10)
-      expect(prisma.$transaction).toHaveBeenCalled();
+      expect(findManyMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          skip: 20,
+          take: 10,
+        }),
+      );
     });
   });
 
   describe('findOne', () => {
     it('should return a recipe by id', async () => {
-      jest.spyOn(prisma.recipe, 'findUnique').mockResolvedValueOnce(mockRecipe);
+      findUniqueMock.mockResolvedValueOnce(mockRecipe);
 
-      const result = await service.findOne('1');
+      const result = await getService().findOne('1');
 
       expect(result).toEqual(mockRecipe);
-      expect(prisma.recipe.findUnique).toHaveBeenCalledWith({
+      expect(findUniqueMock).toHaveBeenCalledWith({
         where: { id: '1' },
       });
     });
 
     it('should throw NotFoundException when recipe does not exist', async () => {
-      jest.spyOn(prisma.recipe, 'findUnique').mockResolvedValueOnce(null);
+      findUniqueMock.mockResolvedValueOnce(null);
 
-      await expect(service.findOne('nonexistent')).rejects.toThrow(
+      await expect(getService().findOne('nonexistent')).rejects.toThrow(
         NotFoundException,
       );
     });
 
     it('should include correct error message', async () => {
-      jest.spyOn(prisma.recipe, 'findUnique').mockResolvedValueOnce(null);
+      findUniqueMock.mockResolvedValueOnce(null);
 
-      await expect(service.findOne('123')).rejects.toThrow(
+      await expect(getService().findOne('123')).rejects.toThrow(
         'Recipe with id "123" not found',
       );
     });
@@ -173,36 +222,36 @@ describe('RecipesService', () => {
         ...mockRecipe,
         prompt: 'Create a pasta recipe',
       };
-      jest.spyOn(prisma.recipe, 'create').mockResolvedValueOnce(createdRecipe);
+      createMock.mockResolvedValueOnce(createdRecipe);
 
-      const result = await service.create('Create a pasta recipe');
+      const result = await getService().create('Create a pasta recipe');
 
       expect(result).toEqual(createdRecipe);
-      expect(prisma.recipe.create).toHaveBeenCalledWith({
-        data: expect.objectContaining({
-          prompt: 'Create a pasta recipe',
-          difficulty: RecipeDifficulty.MEDIUM,
-          mealTypes: [MealType.DINNER],
-        }),
+      expect(createMock).toHaveBeenCalledWith({
+        data: buildExpectedRecipeData('Create a pasta recipe'),
       });
     });
 
     it('should throw BadRequestException when prompt is empty', async () => {
-      await expect(service.create('')).rejects.toThrow(BadRequestException);
+      await expect(getService().create('')).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('should throw BadRequestException when prompt is only whitespace', async () => {
-      await expect(service.create('   ')).rejects.toThrow(BadRequestException);
+      await expect(getService().create('   ')).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('should throw BadRequestException when prompt is undefined', async () => {
-      await expect(service.create(undefined)).rejects.toThrow(
+      await expect(getService().create(undefined)).rejects.toThrow(
         BadRequestException,
       );
     });
 
     it('should include correct error message for empty prompt', async () => {
-      await expect(service.create('')).rejects.toThrow(
+      await expect(getService().create('')).rejects.toThrow(
         'Prompt is required to generate a recipe',
       );
     });
@@ -212,41 +261,24 @@ describe('RecipesService', () => {
         ...mockRecipe,
         prompt: 'Trimmed prompt',
       };
-      jest.spyOn(prisma.recipe, 'create').mockResolvedValueOnce(createdRecipe);
+      createMock.mockResolvedValueOnce(createdRecipe);
 
-      await service.create('  Trimmed prompt  ');
+      await getService().create('  Trimmed prompt  ');
 
-      expect(prisma.recipe.create).toHaveBeenCalledWith({
-        data: expect.objectContaining({
-          prompt: 'Trimmed prompt',
-        }),
+      expect(createMock).toHaveBeenCalledWith({
+        data: buildExpectedRecipeData('Trimmed prompt'),
       });
     });
 
     it('should create recipe with placeholder values', async () => {
       const createdRecipe = mockRecipe;
-      jest.spyOn(prisma.recipe, 'create').mockResolvedValueOnce(createdRecipe);
+      createMock.mockResolvedValueOnce(createdRecipe);
 
-      await service.create('Test prompt');
+      await getService().create('Test prompt');
 
-      const callArgs = (prisma.recipe.create as jest.Mock).mock.calls[0][0];
-      expect(callArgs.data).toEqual(
-        expect.objectContaining({
-          name: 'Generated recipe (pending details)',
-          difficulty: RecipeDifficulty.MEDIUM,
-          mealTypes: [MealType.DINNER],
-          countriesOfOrigin: [],
-          diets: [],
-          allergies: [],
-          proteinType: [],
-          prepTimeMinutes: 0,
-          cookTimeMinutes: 0,
-          description: 'Recipe details will be generated shortly.',
-          preparation: [],
-          instructions: [],
-          servingSize: 'To be determined',
-        }),
-      );
+      expect(createMock).toHaveBeenCalledWith({
+        data: buildExpectedRecipeData('Test prompt'),
+      });
     });
   });
 });

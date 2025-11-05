@@ -1,13 +1,42 @@
-import { Test, TestingModule } from '@nestjs/testing';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { MealType, RecipeDifficulty } from '@prisma/client';
+import type { TestingModule } from '@nestjs/testing';
+import { Test } from '@nestjs/testing';
+import { RateLimitGuard } from './rate-limit.guard';
 import { RecipesController } from './recipes.controller';
 import { RecipesService } from './recipes.service';
-import { MealType, RecipeDifficulty } from '@prisma/client';
-import { RateLimitGuard } from './rate-limit.guard';
+
+type RecipesServiceMock = {
+  [K in 'findAll' | 'findOne' | 'create']: jest.MockedFunction<
+    RecipesService[K]
+  >;
+};
 
 describe('RecipesController', () => {
-  let controller: RecipesController;
-  let service: RecipesService;
+  let moduleRef: TestingModule | null = null;
+  let controller: RecipesController | null = null;
+  let recipesServiceMock: RecipesServiceMock = {
+    findAll: jest.fn<
+      ReturnType<RecipesService['findAll']>,
+      Parameters<RecipesService['findAll']>
+    >(),
+    findOne: jest.fn<
+      ReturnType<RecipesService['findOne']>,
+      Parameters<RecipesService['findOne']>
+    >(),
+    create: jest.fn<
+      ReturnType<RecipesService['create']>,
+      Parameters<RecipesService['create']>
+    >(),
+  };
+
+  const getController = (): RecipesController => {
+    if (!controller) {
+      throw new Error('RecipesController not initialized');
+    }
+
+    return controller;
+  };
 
   const mockRecipe = {
     id: '1',
@@ -30,16 +59,27 @@ describe('RecipesController', () => {
   };
 
   beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
+    recipesServiceMock = {
+      findAll: jest.fn<
+        ReturnType<RecipesService['findAll']>,
+        Parameters<RecipesService['findAll']>
+      >(),
+      findOne: jest.fn<
+        ReturnType<RecipesService['findOne']>,
+        Parameters<RecipesService['findOne']>
+      >(),
+      create: jest.fn<
+        ReturnType<RecipesService['create']>,
+        Parameters<RecipesService['create']>
+      >(),
+    };
+
+    moduleRef = await Test.createTestingModule({
       controllers: [RecipesController],
       providers: [
         {
           provide: RecipesService,
-          useValue: {
-            findAll: jest.fn(),
-            findOne: jest.fn(),
-            create: jest.fn(),
-          },
+          useValue: recipesServiceMock,
         },
       ],
     })
@@ -49,12 +89,16 @@ describe('RecipesController', () => {
       })
       .compile();
 
-    controller = module.get<RecipesController>(RecipesController);
-    service = module.get<RecipesService>(RecipesService);
+    controller = moduleRef.get<RecipesController>(RecipesController);
   });
 
-  afterEach(() => {
-    jest.clearAllMocks();
+  afterEach(async () => {
+    controller = null;
+    recipesServiceMock.findAll.mockReset();
+    recipesServiceMock.findOne.mockReset();
+    recipesServiceMock.create.mockReset();
+    await moduleRef?.close();
+    moduleRef = null;
   });
 
   describe('getRecipes', () => {
@@ -68,12 +112,12 @@ describe('RecipesController', () => {
           limit: 10,
         },
       };
-      jest.spyOn(service, 'findAll').mockResolvedValueOnce(paginatedRecipes);
+      recipesServiceMock.findAll.mockResolvedValueOnce(paginatedRecipes);
 
-      const result = await controller.getRecipes(1, 10);
+      const result = await getController().getRecipes(1, 10);
 
       expect(result).toEqual(paginatedRecipes);
-      expect(service.findAll).toHaveBeenCalledWith(1, 10);
+      expect(recipesServiceMock.findAll).toHaveBeenCalledWith(1, 10);
     });
 
     it('should use default page of 1', async () => {
@@ -86,11 +130,11 @@ describe('RecipesController', () => {
           limit: 10,
         },
       };
-      jest.spyOn(service, 'findAll').mockResolvedValueOnce(paginatedRecipes);
+      recipesServiceMock.findAll.mockResolvedValueOnce(paginatedRecipes);
 
-      await controller.getRecipes(1, 10);
+      await getController().getRecipes(1, 10);
 
-      expect(service.findAll).toHaveBeenCalledWith(1, 10);
+      expect(recipesServiceMock.findAll).toHaveBeenCalledWith(1, 10);
     });
 
     it('should use default limit of 10', async () => {
@@ -103,11 +147,11 @@ describe('RecipesController', () => {
           limit: 10,
         },
       };
-      jest.spyOn(service, 'findAll').mockResolvedValueOnce(paginatedRecipes);
+      recipesServiceMock.findAll.mockResolvedValueOnce(paginatedRecipes);
 
-      await controller.getRecipes(1, 10);
+      await getController().getRecipes(1, 10);
 
-      expect(service.findAll).toHaveBeenCalledWith(1, 10);
+      expect(recipesServiceMock.findAll).toHaveBeenCalledWith(1, 10);
     });
 
     it('should handle multiple pages', async () => {
@@ -120,12 +164,12 @@ describe('RecipesController', () => {
           limit: 10,
         },
       };
-      jest.spyOn(service, 'findAll').mockResolvedValueOnce(paginatedRecipes);
+      recipesServiceMock.findAll.mockResolvedValueOnce(paginatedRecipes);
 
-      const result = await controller.getRecipes(2, 10);
+      const result = await getController().getRecipes(2, 10);
 
       expect(result.meta.page).toBe(2);
-      expect(service.findAll).toHaveBeenCalledWith(2, 10);
+      expect(recipesServiceMock.findAll).toHaveBeenCalledWith(2, 10);
     });
 
     it('should handle custom limit', async () => {
@@ -140,106 +184,107 @@ describe('RecipesController', () => {
           limit: 20,
         },
       };
-      jest.spyOn(service, 'findAll').mockResolvedValueOnce(paginatedRecipes);
+      recipesServiceMock.findAll.mockResolvedValueOnce(paginatedRecipes);
 
-      const result = await controller.getRecipes(1, 20);
+      const result = await getController().getRecipes(1, 20);
 
       expect(result.meta.limit).toBe(20);
-      expect(service.findAll).toHaveBeenCalledWith(1, 20);
+      expect(recipesServiceMock.findAll).toHaveBeenCalledWith(1, 20);
     });
   });
 
   describe('getRecipeById', () => {
     it('should return a recipe by id', async () => {
-      jest.spyOn(service, 'findOne').mockResolvedValueOnce(mockRecipe);
+      recipesServiceMock.findOne.mockResolvedValueOnce(mockRecipe);
 
-      const result = await controller.getRecipeById('1');
+      const result = await getController().getRecipeById('1');
 
       expect(result).toEqual(mockRecipe);
-      expect(service.findOne).toHaveBeenCalledWith('1');
+      expect(recipesServiceMock.findOne).toHaveBeenCalledWith('1');
     });
 
     it('should throw NotFoundException for invalid id', async () => {
-      jest
-        .spyOn(service, 'findOne')
-        .mockRejectedValueOnce(
-          new NotFoundException('Recipe with id "invalid" not found'),
-        );
+      recipesServiceMock.findOne.mockRejectedValueOnce(
+        new NotFoundException('Recipe with id "invalid" not found'),
+      );
 
-      await expect(controller.getRecipeById('invalid')).rejects.toThrow(
+      await expect(getController().getRecipeById('invalid')).rejects.toThrow(
         NotFoundException,
       );
     });
 
     it('should work with different id formats', async () => {
       const customRecipe = { ...mockRecipe, id: 'custom-uuid-123' };
-      jest.spyOn(service, 'findOne').mockResolvedValueOnce(customRecipe);
+      recipesServiceMock.findOne.mockResolvedValueOnce(customRecipe);
 
-      const result = await controller.getRecipeById('custom-uuid-123');
+      const result = await getController().getRecipeById('custom-uuid-123');
 
       expect(result).toEqual(customRecipe);
-      expect(service.findOne).toHaveBeenCalledWith('custom-uuid-123');
+      expect(recipesServiceMock.findOne).toHaveBeenCalledWith(
+        'custom-uuid-123',
+      );
     });
   });
 
   describe('createRecipe', () => {
     it('should create a recipe with valid prompt', async () => {
-      jest.spyOn(service, 'create').mockResolvedValueOnce(mockRecipe);
+      recipesServiceMock.create.mockResolvedValueOnce(mockRecipe);
 
-      const result = await controller.createRecipe({ prompt: 'Test prompt' });
+      const result = await getController().createRecipe({
+        prompt: 'Test prompt',
+      });
 
       expect(result).toEqual(mockRecipe);
-      expect(service.create).toHaveBeenCalledWith('Test prompt');
+      expect(recipesServiceMock.create).toHaveBeenCalledWith('Test prompt');
     });
 
     it('should throw BadRequestException for empty prompt', async () => {
-      jest
-        .spyOn(service, 'create')
-        .mockRejectedValueOnce(
-          new BadRequestException(
-            'Prompt is required to generate a recipe',
-          ),
-        );
+      recipesServiceMock.create.mockRejectedValueOnce(
+        new BadRequestException('Prompt is required to generate a recipe'),
+      );
 
       await expect(
-        controller.createRecipe({ prompt: '' }),
+        getController().createRecipe({ prompt: '' }),
       ).rejects.toThrow(BadRequestException);
     });
 
     it('should pass prompt to service', async () => {
       const createdRecipe = { ...mockRecipe, prompt: 'Custom prompt' };
-      jest.spyOn(service, 'create').mockResolvedValueOnce(createdRecipe);
+      recipesServiceMock.create.mockResolvedValueOnce(createdRecipe);
 
-      await controller.createRecipe({ prompt: 'Custom prompt' });
+      await getController().createRecipe({ prompt: 'Custom prompt' });
 
-      expect(service.create).toHaveBeenCalledWith('Custom prompt');
+      expect(recipesServiceMock.create).toHaveBeenCalledWith('Custom prompt');
     });
 
     it('should handle whitespace in prompt', async () => {
-      jest.spyOn(service, 'create').mockResolvedValueOnce(mockRecipe);
+      recipesServiceMock.create.mockResolvedValueOnce(mockRecipe);
 
-      await controller.createRecipe({ prompt: '  Test prompt  ' });
+      await getController().createRecipe({ prompt: '  Test prompt  ' });
 
-      expect(service.create).toHaveBeenCalledWith('  Test prompt  ');
+      expect(recipesServiceMock.create).toHaveBeenCalledWith('  Test prompt  ');
     });
 
     it('should work with complex prompts', async () => {
       const complexPrompt =
         'Create a vegan, gluten-free pasta recipe that serves 4 people and takes less than 30 minutes to prepare';
       const createdRecipe = { ...mockRecipe, prompt: complexPrompt };
-      jest.spyOn(service, 'create').mockResolvedValueOnce(createdRecipe);
+      recipesServiceMock.create.mockResolvedValueOnce(createdRecipe);
 
-      const result = await controller.createRecipe({ prompt: complexPrompt });
+      const result = await getController().createRecipe({
+        prompt: complexPrompt,
+      });
 
       expect(result).toEqual(createdRecipe);
-      expect(service.create).toHaveBeenCalledWith(complexPrompt);
+      expect(recipesServiceMock.create).toHaveBeenCalledWith(complexPrompt);
     });
   });
 
   describe('Rate Limiting', () => {
     it('should have RateLimitGuard applied to the controller', () => {
-      const guards = Reflect.getMetadata('__guards__', RecipesController);
-      expect(guards).toBeDefined();
+      expect(
+        Reflect.getMetadata('__guards__', RecipesController),
+      ).toBeDefined();
     });
   });
 });

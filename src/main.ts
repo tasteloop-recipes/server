@@ -6,7 +6,11 @@ async function bootstrap(): Promise<void> {
 
   // Configure CORS for public endpoints
   app.enableCors({
-    origin: ['http://localhost:3000', 'http://localhost:3001', 'https://tasteloop.app'],
+    origin: [
+      'http://localhost:3000',
+      'http://localhost:3001',
+      'https://tasteloop.app',
+    ],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
