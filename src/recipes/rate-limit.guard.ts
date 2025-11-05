@@ -1,4 +1,10 @@
-import { Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
+import {
+  Injectable,
+  CanActivate,
+  ExecutionContext,
+  HttpException,
+  HttpStatus,
+} from '@nestjs/common';
 import type { Request } from 'express';
 
 @Injectable()
@@ -27,7 +33,10 @@ export class RateLimitGuard implements CanActivate {
     // Check if limit exceeded
     if (recentRequests.length >= this.maxRequests) {
       this.store.set(ip, recentRequests);
-      return false;
+      throw new HttpException(
+        'Rate limit exceeded',
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
     }
 
     // Add current request

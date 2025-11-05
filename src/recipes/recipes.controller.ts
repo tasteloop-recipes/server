@@ -3,6 +3,8 @@ import {
   Controller,
   DefaultValuePipe,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   ParseIntPipe,
   Post,
@@ -34,6 +36,7 @@ export class RecipesController {
   }
 
   @Post()
+  @HttpCode(HttpStatus.CREATED)
   async createRecipe(@Body() body: CreateRecipeDto): Promise<Recipe> {
     return this.recipesService.create(body.prompt);
   }
