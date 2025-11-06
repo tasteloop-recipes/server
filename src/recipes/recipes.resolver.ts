@@ -8,17 +8,17 @@ import { RecipesService } from './recipes.service';
 export class RecipesResolver {
   constructor(private readonly recipesService: RecipesService) {}
 
-  @Query(/* istanbul ignore next */ () => RecipesPage, {
+  @Query(() => RecipesPage, {
     description: 'Retrieve a paginated list of recipes',
   })
   async recipes(
     @Args('page', {
-      type: /* istanbul ignore next */ () => Int,
+      type: () => Int,
       defaultValue: 1,
     })
     page: number,
     @Args('limit', {
-      type: /* istanbul ignore next */ () => Int,
+      type: () => Int,
       defaultValue: 10,
     })
     limit: number,
@@ -26,16 +26,16 @@ export class RecipesResolver {
     return this.recipesService.findAll(page, limit);
   }
 
-  @Query(/* istanbul ignore next */ () => RecipeModel, {
+  @Query(() => RecipeModel, {
     description: 'Retrieve a recipe by its identifier',
   })
   async recipe(
-    @Args('id', { type: /* istanbul ignore next */ () => String }) id: string,
+    @Args('id', { type: () => String }) id: string,
   ): Promise<RecipeModel> {
     return this.recipesService.findOne(id);
   }
 
-  @Mutation(/* istanbul ignore next */ () => RecipeModel, {
+  @Mutation(() => RecipeModel, {
     description: 'Create a new recipe',
   })
   async createRecipe(

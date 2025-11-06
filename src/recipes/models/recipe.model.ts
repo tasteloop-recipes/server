@@ -1,5 +1,3 @@
-/* istanbul ignore file */
-
 import {
   Field,
   GraphQLISODateTime,

@@ -1,5 +1,3 @@
-/* istanbul ignore file */
-
 import { Field, Int, ObjectType } from '@nestjs/graphql';
 import type {
   PaginatedRecipes,
