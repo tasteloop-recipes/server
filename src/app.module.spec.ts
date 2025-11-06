@@ -1,8 +1,8 @@
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
 import { AppModule } from './app.module';
-import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { AppResolver } from './app.resolver';
 
 describe('AppModule', () => {
   let module: TestingModule | undefined = undefined;
@@ -18,9 +18,9 @@ describe('AppModule', () => {
       expect(module).toBeDefined();
     });
 
-    it('should have AppController', () => {
-      const controller = module?.get<AppController>(AppController);
-      expect(controller).toBeDefined();
+    it('should have AppResolver', () => {
+      const resolver = module?.get<AppResolver>(AppResolver);
+      expect(resolver).toBeDefined();
     });
 
     it('should have AppService', () => {
@@ -34,18 +34,18 @@ describe('AppModule', () => {
       expect(service1).toBe(service2);
     });
 
-    it('should provide AppService to AppController', () => {
-      const controller = module?.get<AppController>(AppController);
+    it('should provide AppService to AppResolver', () => {
+      const resolver = module?.get<AppResolver>(AppResolver);
       const service = module?.get<AppService>(AppService);
-      expect(controller).toBeDefined();
+      expect(resolver).toBeDefined();
       expect(service).toBeDefined();
     });
   });
 
   describe('module functionality', () => {
     it('should have working controller and service', () => {
-      const controller = module?.get<AppController>(AppController);
-      const result = controller?.getHello();
+      const resolver = module?.get<AppResolver>(AppResolver);
+      const result = resolver?.getHello();
       expect(result).toBe('Hello World!');
     });
   });

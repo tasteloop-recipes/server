@@ -1,0 +1,70 @@
+import {
+  Field,
+  GraphQLISODateTime,
+  ID,
+  ObjectType,
+  registerEnumType,
+} from '@nestjs/graphql';
+import { Diet, MealType, ProteinType, RecipeDifficulty } from '@prisma/client';
+
+registerEnumType(RecipeDifficulty, { name: 'RecipeDifficulty' });
+registerEnumType(MealType, { name: 'MealType' });
+registerEnumType(Diet, { name: 'Diet' });
+registerEnumType(ProteinType, { name: 'ProteinType' });
+
+@ObjectType()
+export class RecipeModel {
+  @Field(() => ID)
+  id!: string;
+
+  @Field()
+  name!: string;
+
+  @Field()
+  prompt!: string;
+
+  @Field(() => ID, { nullable: true })
+  authorId!: string | null;
+
+  @Field(() => RecipeDifficulty)
+  difficulty!: RecipeDifficulty;
+
+  @Field(() => [MealType])
+  mealTypes!: MealType[];
+
+  @Field(() => [String])
+  countriesOfOrigin!: string[];
+
+  @Field(() => [Diet])
+  diets!: Diet[];
+
+  @Field(() => [String])
+  allergies!: string[];
+
+  @Field(() => [ProteinType])
+  proteinType!: ProteinType[];
+
+  @Field(() => Number)
+  prepTimeMinutes!: number;
+
+  @Field(() => Number)
+  cookTimeMinutes!: number;
+
+  @Field()
+  description!: string;
+
+  @Field(() => [String])
+  preparation!: string[];
+
+  @Field(() => [String])
+  instructions!: string[];
+
+  @Field()
+  servingSize!: string;
+
+  @Field(() => GraphQLISODateTime)
+  createdAt!: Date;
+
+  @Field(() => GraphQLISODateTime)
+  updatedAt!: Date;
+}

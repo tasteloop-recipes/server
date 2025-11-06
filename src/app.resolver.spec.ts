@@ -1,20 +1,19 @@
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
-import { AppController } from './app.controller';
+import { AppResolver } from './app.resolver';
 import { AppService } from './app.service';
 
-describe('AppController', () => {
-  let appController: AppController | undefined = undefined;
+describe('AppResolver', () => {
+  let appResolver: AppResolver | undefined = undefined;
   let appService: AppService | undefined = undefined;
   let module: TestingModule | undefined = undefined;
 
   beforeEach(async () => {
     module = await Test.createTestingModule({
-      controllers: [AppController],
-      providers: [AppService],
+      providers: [AppResolver, AppService],
     }).compile();
 
-    appController = module.get<AppController>(AppController);
+    appResolver = module.get<AppResolver>(AppResolver);
     appService = module.get<AppService>(AppService);
   });
 
@@ -24,14 +23,7 @@ describe('AppController', () => {
 
   describe('initialization', () => {
     it('should be defined', () => {
-      expect(appController).toBeDefined();
-    });
-
-    it('should have getHello method', () => {
-      expect(appController).toBeDefined();
-      if (appController) {
-        expect(typeof appController.getHello).toBe('function');
-      }
+      expect(appResolver).toBeDefined();
     });
 
     it('should have AppService injected', () => {
@@ -41,33 +33,33 @@ describe('AppController', () => {
 
   describe('getHello', () => {
     it('should return "Hello World!"', () => {
-      expect(appController?.getHello()).toBe('Hello World!');
+      expect(appResolver?.getHello()).toBe('Hello World!');
     });
 
     it('should call AppService.getHello()', () => {
       if (!appService) return;
       const spy = jest.spyOn(appService, 'getHello');
-      appController?.getHello();
+      appResolver?.getHello();
       expect(spy).toHaveBeenCalled();
       spy.mockRestore();
     });
 
     it('should return same value as AppService', () => {
       const serviceResult = appService?.getHello();
-      const controllerResult = appController?.getHello();
-      expect(controllerResult).toBe(serviceResult);
+      const resolverResult = appResolver?.getHello();
+      expect(resolverResult).toBe(serviceResult);
     });
 
     it('should return a non-empty string', () => {
-      const result = appController?.getHello();
+      const result = appResolver?.getHello();
       expect(result).toBeDefined();
       expect(result?.length).toBeGreaterThan(0);
     });
 
     it('should consistently return the same value', () => {
-      const result1 = appController?.getHello();
-      const result2 = appController?.getHello();
-      const result3 = appController?.getHello();
+      const result1 = appResolver?.getHello();
+      const result2 = appResolver?.getHello();
+      const result3 = appResolver?.getHello();
       expect(result1).toBe(result2);
       expect(result2).toBe(result3);
     });

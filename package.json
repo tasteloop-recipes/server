@@ -28,16 +28,24 @@
     "prisma:format:check": "prisma format --schema prisma/schema.prisma && git diff --exit-code prisma/schema.prisma"
   },
   "dependencies": {
+    "@apollo/server": "^5.0.0",
+    "@nestjs/apollo": "^13.2.1",
     "@nestjs/common": "^11.0.1",
     "@nestjs/core": "^11.0.1",
+    "@nestjs/graphql": "^13.0.1",
     "@nestjs/platform-express": "^11.0.1",
     "@nestjs/throttler": "^6.4.0",
     "@prisma/client": "^6.18.0",
     "class-validator": "^0.14.2",
+    "graphql": "^16.9.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1"
   },
+  "overrides": {
+    "@apollo/server": "^5.0.0"
+  },
   "devDependencies": {
+    "@as-integrations/express5": "^1.1.2",
     "@eslint/eslintrc": "^3.2.0",
     "@eslint/js": "^9.39.1",
     "@nestjs/cli": "^11.0.0",
@@ -47,6 +55,7 @@
     "@types/jest": "^30.0.0",
     "@types/node": "^24.10.0",
     "@types/supertest": "^6.0.2",
+    "class-transformer": "^0.5.1",
     "eslint": "^9.39.1",
     "eslint-config-prettier": "^10.0.1",
     "eslint-plugin-prettier": "^5.2.2",

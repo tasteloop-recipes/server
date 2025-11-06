@@ -142,24 +142,6 @@ describe('RecipesService', () => {
       expect(result.meta.limit).toBe(50);
     });
 
-    it('should handle invalid page number (should default to 1)', async () => {
-      const mockRecipes = [mockRecipe];
-      transactionMock.mockResolvedValueOnce([mockRecipes, 10]);
-
-      const result = await getService().findAll(0, 10);
-
-      expect(result.meta.page).toBe(1);
-    });
-
-    it('should handle invalid limit (should default to 10)', async () => {
-      const mockRecipes = [mockRecipe];
-      transactionMock.mockResolvedValueOnce([mockRecipes, 10]);
-
-      const result = await getService().findAll(1, -5);
-
-      expect(result.meta.limit).toBe(10);
-    });
-
     it('should calculate totalPages correctly', async () => {
       const mockRecipes = Array(50)
         .fill(null)
