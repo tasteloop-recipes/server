@@ -1,12 +1,8 @@
 import { Field, Int, ObjectType } from '@nestjs/graphql';
-import type {
-  PaginatedRecipes,
-  PaginatedRecipesMeta,
-} from '../recipes.service';
 import { RecipeModel } from './recipe.model';
 
 @ObjectType()
-export class RecipesPageMeta implements PaginatedRecipesMeta {
+export class RecipesPageMeta {
   @Field(() => Int)
   totalItems!: number;
 
@@ -21,7 +17,7 @@ export class RecipesPageMeta implements PaginatedRecipesMeta {
 }
 
 @ObjectType()
-export class RecipesPage implements PaginatedRecipes {
+export class RecipesPage {
   @Field(() => [RecipeModel])
   data!: RecipeModel[];
 
