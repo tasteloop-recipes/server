@@ -23,18 +23,8 @@ export class RecipesService {
   constructor(private readonly prisma: PrismaService) {}
 
   async findAll(page: number, limit: number): Promise<PaginatedRecipes> {
-    if (Number.isFinite(page) && page < 0) {
-      throw new BadRequestException('Page must be greater than or equal to 0');
-    }
-
-    if (Number.isFinite(limit) && limit < 0) {
-      throw new BadRequestException('Limit must be greater than or equal to 0');
-    }
-
-    const currentPage = Number.isFinite(page) && page > 0 ? page : 1;
-    const currentLimit =
-      Number.isFinite(limit) && limit > 0 ? Math.min(limit, 50) : 10;
-    const skip = (currentPage - 1) * currentLimit;
+    const currentLimit = Math.min(limit, 50);
+    const skip = (page - 1) * currentLimit;
 
     const [data, totalItems] = await this.prisma.$transaction([
       this.prisma.recipe.findMany({
@@ -52,7 +42,7 @@ export class RecipesService {
       meta: {
         totalItems,
         totalPages,
-        page: currentPage,
+        page,
         limit: currentLimit,
       },
     };

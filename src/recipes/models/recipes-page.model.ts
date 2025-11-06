@@ -4,6 +4,7 @@ import type {
   PaginatedRecipesMeta,
 } from '../recipes.service';
 import { RecipeModel } from './recipe.model';
+import { Min } from 'class-validator';
 
 @ObjectType()
 export class RecipesPageMeta implements PaginatedRecipesMeta {
@@ -14,9 +15,11 @@ export class RecipesPageMeta implements PaginatedRecipesMeta {
   totalPages!: number;
 
   @Field(() => Int)
+  @Min(1, { message: 'Page must be greater than 0' })
   page!: number;
 
   @Field(() => Int)
+  @Min(1, { message: 'Limit must be greater than 0' })
   limit!: number;
 }
 
