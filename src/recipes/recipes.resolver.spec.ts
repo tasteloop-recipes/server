@@ -109,7 +109,7 @@ describe('RecipesResolver', () => {
       };
       recipesServiceMock.findAll.mockResolvedValueOnce(paginatedRecipes);
 
-      const result = await getResolver().recipes(1, 10);
+      const result = await getResolver().recipes({ page: 1, limit: 10 });
 
       expect(result).toEqual(paginatedRecipes);
       expect(recipesServiceMock.findAll).toHaveBeenCalledWith(1, 10);
@@ -127,7 +127,7 @@ describe('RecipesResolver', () => {
       };
       recipesServiceMock.findAll.mockResolvedValueOnce(paginatedRecipes);
 
-      const result = await getResolver().recipes(2, 10);
+      const result = await getResolver().recipes({ page: 2, limit: 10 });
 
       expect(result.meta.page).toBe(2);
       expect(recipesServiceMock.findAll).toHaveBeenCalledWith(2, 10);
@@ -147,7 +147,7 @@ describe('RecipesResolver', () => {
       };
       recipesServiceMock.findAll.mockResolvedValueOnce(paginatedRecipes);
 
-      const result = await getResolver().recipes(1, 20);
+      const result = await getResolver().recipes({ page: 1, limit: 20 });
 
       expect(result.meta.limit).toBe(20);
       expect(recipesServiceMock.findAll).toHaveBeenCalledWith(1, 20);
