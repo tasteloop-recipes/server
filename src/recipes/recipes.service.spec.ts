@@ -151,13 +151,25 @@ describe('RecipesService', () => {
       expect(result.meta.page).toBe(1);
     });
 
-    it('should handle invalid limit (should default to 10)', async () => {
+    it('should default limit to 10 when zero is provided', async () => {
       const mockRecipes = [mockRecipe];
       transactionMock.mockResolvedValueOnce([mockRecipes, 10]);
 
-      const result = await getService().findAll(1, -5);
+      const result = await getService().findAll(1, 0);
 
       expect(result.meta.limit).toBe(10);
+    });
+
+    it('should throw when page is negative', async () => {
+      await expect(getService().findAll(-1, 10)).rejects.toThrow(
+        'Page must be greater than or equal to 0',
+      );
+    });
+
+    it('should throw when limit is negative', async () => {
+      await expect(getService().findAll(1, -5)).rejects.toThrow(
+        'Limit must be greater than or equal to 0',
+      );
     });
 
     it('should calculate totalPages correctly', async () => {
