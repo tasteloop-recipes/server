@@ -5,45 +5,36 @@ import {
 } from '@nestjs/common';
 import { MealType, Recipe, RecipeDifficulty } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-
-export interface PaginatedRecipesMeta {
-  totalItems: number;
-  totalPages: number;
-  page: number;
-  limit: number;
-}
-
-export interface PaginatedRecipes {
-  data: Recipe[];
-  meta: PaginatedRecipesMeta;
-}
+import { RecipesPage } from './models/recipes-page.model';
 
 @Injectable()
 export class RecipesService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async findAll(page: number, limit: number): Promise<PaginatedRecipes> {
-    const currentLimit = Math.min(limit, 50);
-    const skip = (page - 1) * currentLimit;
+  async findAll(page: number, limit: number): Promise<RecipesPage> {
+    const calculatedLimit = Math.min(Math.max(limit, 1), 50);
+    const calculatedPage = Math.max(page, 1);
+
+    const skip = (calculatedPage - 1) * calculatedLimit;
 
     const [data, totalItems] = await this.prisma.$transaction([
       this.prisma.recipe.findMany({
         skip,
-        take: currentLimit,
+        take: calculatedLimit,
         orderBy: { createdAt: 'desc' },
       }),
       this.prisma.recipe.count(),
     ]);
 
-    const totalPages = Math.max(1, Math.ceil(totalItems / currentLimit));
+    const totalPages = Math.max(1, Math.ceil(totalItems / calculatedLimit));
 
     return {
       data,
       meta: {
         totalItems,
         totalPages,
-        page,
-        limit: currentLimit,
+        page: calculatedPage,
+        limit: calculatedLimit,
       },
     };
   }

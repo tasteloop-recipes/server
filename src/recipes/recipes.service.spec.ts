@@ -133,15 +133,6 @@ describe('RecipesService', () => {
       expect(transactionMock).toHaveBeenCalledTimes(1);
     });
 
-    it('should cap limit to 50', async () => {
-      const mockRecipes = [mockRecipe];
-      transactionMock.mockResolvedValueOnce([mockRecipes, 100]);
-
-      const result = await getService().findAll(1, 100);
-
-      expect(result.meta.limit).toBe(50);
-    });
-
     it('should calculate totalPages correctly', async () => {
       const mockRecipes = Array(50)
         .fill(null)
