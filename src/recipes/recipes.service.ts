@@ -23,19 +23,18 @@ export class RecipesService {
   constructor(private readonly prisma: PrismaService) {}
 
   async findAll(page: number, limit: number): Promise<PaginatedRecipes> {
-    const currentLimit = Math.min(limit, 50);
-    const skip = (page - 1) * currentLimit;
+    const skip = (page - 1) * limit;
 
     const [data, totalItems] = await this.prisma.$transaction([
       this.prisma.recipe.findMany({
         skip,
-        take: currentLimit,
+        take: limit,
         orderBy: { createdAt: 'desc' },
       }),
       this.prisma.recipe.count(),
     ]);
 
-    const totalPages = Math.max(1, Math.ceil(totalItems / currentLimit));
+    const totalPages = Math.max(1, Math.ceil(totalItems / limit));
 
     return {
       data,
@@ -43,7 +42,7 @@ export class RecipesService {
         totalItems,
         totalPages,
         page,
-        limit: currentLimit,
+        limit,
       },
     };
   }
