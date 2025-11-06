@@ -10,6 +10,7 @@ import { AppResolver } from './app.resolver';
 import { AppService } from './app.service';
 import { PrismaModule } from './prisma/prisma.module';
 import { RecipesModule } from './recipes/recipes.module';
+import { ApolloServerPluginLandingPageLocalDefault } from '@apollo/server/plugin/landingPage/default';
 
 @Module({
   imports: [
@@ -17,8 +18,9 @@ import { RecipesModule } from './recipes/recipes.module';
       driver: ApolloDriver,
       autoSchemaFile: join(process.cwd(), 'schema.gql'),
       sortSchema: true,
-      playground: process.env.NODE_ENV !== 'production',
-      introspection: process.env.NODE_ENV !== 'production',
+      playground: false,
+      introspection: true,
+      plugins: [ApolloServerPluginLandingPageLocalDefault()],
       context: ({ req, res }: { req: Request; res: Response }) => ({
         req,
         res,
