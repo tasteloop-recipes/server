@@ -115,17 +115,17 @@ model MiscNutritionFact {
   @@index([recipeId])
 }
 
+// Stores metadata for recipe images stored in Digital Ocean object storage
 model RecipeImage {
   id          String   @id @default(uuid())
+  // Recipe can be null if recipe was deleted, and a worker will later clean up the orphaned image
   recipe      Recipe?  @relation(fields: [recipeId], references: [id], onDelete: SetNull)
   recipeId    String?  @unique
-  spaceName   String
-  region      String
-  objectKey   String
+  spaceName   String   @db.VarChar(255)
+  region      String   @db.VarChar(100)
+  objectKey   String   @db.VarChar(500)
   fileName    String
-  contentType String?
+  contentType String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-
-  @@index([recipeId])
 }
