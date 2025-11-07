@@ -74,6 +74,7 @@ model Recipe {
   servingSize        String
   nutritionFacts     RecipeNutritionFact[]
   miscNutritionFacts MiscNutritionFact[]
+  image              RecipeImage?
   createdAt          DateTime              @default(now())
   updatedAt          DateTime              @updatedAt
 
@@ -110,6 +111,21 @@ model MiscNutritionFact {
   label    String
   value    Decimal @db.Decimal(10, 2)
   unit     String?
+
+  @@index([recipeId])
+}
+
+model RecipeImage {
+  id          String   @id @default(uuid())
+  recipe      Recipe?  @relation(fields: [recipeId], references: [id], onDelete: SetNull)
+  recipeId    String?  @unique
+  spaceName   String
+  region      String
+  objectKey   String
+  fileName    String
+  contentType String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   @@index([recipeId])
 }
