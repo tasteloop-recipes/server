@@ -11,6 +11,7 @@ import { AppService } from './app.service';
 import { PrismaModule } from './prisma/prisma.module';
 import { RecipesModule } from './recipes/recipes.module';
 import { ApolloServerPluginLandingPageLocalDefault } from '@apollo/server/plugin/landingPage/default';
+import { AiModule } from './ai/ai.module';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { ApolloServerPluginLandingPageLocalDefault } from '@apollo/server/plugin
       },
     ]),
     PrismaModule,
+    AiModule,
     RecipesModule,
   ],
   providers: [
