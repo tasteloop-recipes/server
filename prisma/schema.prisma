@@ -51,6 +51,19 @@ enum ProteinType {
   OTHER
 }
 
+enum Allergy {
+  PEANUTS
+  TREE_NUTS
+  DAIRY
+  EGGS
+  SHELLFISH
+  SOY
+  WHEAT
+  FISH
+  SESAME
+  GLUTEN
+}
+
 model Recipe {
   id                 String                @id @default(uuid())
   name               String
@@ -63,7 +76,7 @@ model Recipe {
   mealTypes          MealType[]
   countriesOfOrigin  String[]              @default([])
   diets              Diet[]                @default([])
-  allergies          String[]              @default([])
+  allergies          Allergy[]             @default([])
   proteinType        ProteinType[]         @default([])
   prepTimeMinutes    Int
   cookTimeMinutes    Int
