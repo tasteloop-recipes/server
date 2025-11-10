@@ -5,11 +5,18 @@ import {
   ObjectType,
   registerEnumType,
 } from '@nestjs/graphql';
-import { Diet, MealType, ProteinType, RecipeDifficulty } from '@prisma/client';
+import {
+  Allergy,
+  Diet,
+  MealType,
+  ProteinType,
+  RecipeDifficulty,
+} from '@prisma/client';
 
 registerEnumType(RecipeDifficulty, { name: 'RecipeDifficulty' });
 registerEnumType(MealType, { name: 'MealType' });
 registerEnumType(Diet, { name: 'Diet' });
+registerEnumType(Allergy, { name: 'Allergy' });
 registerEnumType(ProteinType, { name: 'ProteinType' });
 
 @ObjectType()
@@ -38,8 +45,8 @@ export class RecipeModel {
   @Field(() => [Diet])
   diets!: Diet[];
 
-  @Field(() => [String])
-  allergies!: string[];
+  @Field(() => [Allergy])
+  allergies!: Allergy[];
 
   @Field(() => [ProteinType])
   proteinType!: ProteinType[];
