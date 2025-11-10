@@ -1,4 +1,5 @@
 import { Diet, MealType, ProteinType, RecipeDifficulty } from '@prisma/client';
+import { zodTextFormat } from 'openai/helpers/zod.js';
 import { z } from 'zod';
 
 const ingredientSchema = z
@@ -95,4 +96,9 @@ export const recipeDataSchema = z
   .strict()
   .describe('Formatted schema for generated recipe data');
 
-export type GeneratedRecipeData = z.infer<typeof recipeDataSchema>;
+export const recipeResponseFormat = zodTextFormat(
+  recipeDataSchema,
+  'recipe_generation',
+);
+
+export type RecipeData = z.infer<typeof recipeDataSchema>;
