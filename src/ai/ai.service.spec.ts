@@ -99,8 +99,7 @@ describe('AiService', () => {
 
   describe('generateRecipeData', () => {
     it('should return the recipe data parsed by OpenAI', async () => {
-      const prompt =
-        ' Create a chicken dinner with Mediterranean flavors ';
+      const prompt = ' Create a chicken dinner with Mediterranean flavors ';
       parseMock.mockResolvedValue({
         output_parsed: recipeData,
       });
@@ -129,17 +128,17 @@ describe('AiService', () => {
         output_parsed: null,
       });
 
-      await expect(
-        service.generateRecipeData('Valid prompt'),
-      ).rejects.toThrow(InternalServerErrorException);
+      await expect(service.generateRecipeData('Valid prompt')).rejects.toThrow(
+        InternalServerErrorException,
+      );
     });
 
     it('should surface OpenAI errors as InternalServerErrorException', async () => {
       parseMock.mockRejectedValue(new Error('OpenAI failure'));
 
-      await expect(
-        service.generateRecipeData('Valid prompt'),
-      ).rejects.toThrow(InternalServerErrorException);
+      await expect(service.generateRecipeData('Valid prompt')).rejects.toThrow(
+        InternalServerErrorException,
+      );
     });
   });
 
