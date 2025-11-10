@@ -5,15 +5,21 @@ import {
   InternalServerErrorException,
 } from '@nestjs/common';
 import OpenAI from 'openai';
-import { recipeResponseFormat } from './ai.types';
+import { RecipeData, recipeResponseFormat } from './ai.types';
 
 @Injectable()
 export class AiService {
-  constructor(@Inject(OpenAI) private readonly openai: OpenAI) {}
+  constructor(@Inject(OpenAI) private readonly openai: OpenAI | undefined) {}
 
   async generateRecipeData(
     prompt: string,
   ): Promise<typeof recipeResponseFormat.__output> {
+    if (this.openai == null) {
+      throw new InternalServerErrorException(
+        'OpenAI client is not initialized. Please check your configuration.',
+      );
+    }
+
     const sanitizedPrompt = prompt.trim();
 
     if (!sanitizedPrompt) {
@@ -41,17 +47,18 @@ export class AiService {
 
       return parsedRecipe;
     } catch (error: unknown) {
-      throw new InternalServerErrorException(
-        error,
-        'Failed to generate recipe data with OpenAI.',
-      );
+      throw new InternalServerErrorException(error);
     }
   }
 
   // @todo: OpenAI generated images are temporary, will need to be stored in a proper object storage later
-  async generateRecipeImage(
-    recipe: typeof recipeResponseFormat.__output,
-  ): Promise<string> {
+  async generateRecipeImage(recipe: RecipeData): Promise<string> {
+    if (this.openai == null) {
+      throw new InternalServerErrorException(
+        'OpenAI client is not initialized. Please check your configuration.',
+      );
+    }
+
     const prompt = this.buildImagePrompt(recipe);
 
     try {
@@ -71,16 +78,11 @@ export class AiService {
 
       return imageUrl;
     } catch (error: unknown) {
-      throw new InternalServerErrorException(
-        error,
-        'Failed to generate recipe image with OpenAI.',
-      );
+      throw new InternalServerErrorException(error);
     }
   }
 
-  private buildImagePrompt(
-    recipe: typeof recipeResponseFormat.__output,
-  ): string {
+  private buildImagePrompt(recipe: RecipeData): string {
     const ingredientList = recipe.ingredients
       .map((ing) => `${ing.name} (${ing.amount})`)
       .join(', ');

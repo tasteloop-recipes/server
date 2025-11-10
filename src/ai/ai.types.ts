@@ -100,3 +100,5 @@ export const recipeResponseFormat = zodTextFormat(
   recipeDataSchema,
   'recipe_generation',
 );
+
+export type RecipeData = z.infer<typeof recipeDataSchema>;
