@@ -5,15 +5,16 @@ import {
 import { Test } from '@nestjs/testing';
 import { Diet, MealType, ProteinType, RecipeDifficulty } from '@prisma/client';
 import OpenAI from 'openai';
-import { z } from 'zod';
+import type { z } from 'zod';
 import { AiService } from './ai.service';
-import { recipeDataSchema, recipeResponseFormat } from './ai.types';
+import type { recipeDataSchema } from './ai.types';
+import { recipeResponseFormat } from './ai.types';
 
 type RecipeData = z.infer<typeof recipeDataSchema>;
 
 describe('AiService', () => {
-  let parseMock: jest.Mock;
-  let imageMock: jest.Mock;
+  let parseMock: jest.Mock | undefined = undefined;
+  let imageMock: jest.Mock | undefined = undefined;
 
   const createService = async (): Promise<AiService> => {
     parseMock = jest.fn();
@@ -91,7 +92,7 @@ describe('AiService', () => {
     ],
   };
 
-  let service: AiService;
+  let service: AiService | undefined = undefined;
 
   beforeEach(async () => {
     service = await createService();
@@ -100,11 +101,11 @@ describe('AiService', () => {
   describe('generateRecipeData', () => {
     it('should return the recipe data parsed by OpenAI', async () => {
       const prompt = ' Create a chicken dinner with Mediterranean flavors ';
-      parseMock.mockResolvedValue({
+      parseMock?.mockResolvedValue({
         output_parsed: recipeData,
       });
 
-      const result = await service.generateRecipeData(prompt);
+      const result = await service?.generateRecipeData(prompt);
 
       expect(parseMock).toHaveBeenCalledWith({
         model: 'gpt-5',
@@ -117,26 +118,26 @@ describe('AiService', () => {
     });
 
     it('should throw a BadRequestException when prompt is empty', async () => {
-      await expect(service.generateRecipeData('   ')).rejects.toThrow(
+      await expect(service?.generateRecipeData('   ')).rejects.toThrow(
         BadRequestException,
       );
       expect(parseMock).not.toHaveBeenCalled();
     });
 
     it('should throw when OpenAI does not return recipe data', async () => {
-      parseMock.mockResolvedValue({
+      parseMock?.mockResolvedValue({
         output_parsed: null,
       });
 
-      await expect(service.generateRecipeData('Valid prompt')).rejects.toThrow(
+      await expect(service?.generateRecipeData('Valid prompt')).rejects.toThrow(
         InternalServerErrorException,
       );
     });
 
     it('should surface OpenAI errors as InternalServerErrorException', async () => {
-      parseMock.mockRejectedValue(new Error('OpenAI failure'));
+      parseMock?.mockRejectedValue(new Error('OpenAI failure'));
 
-      await expect(service.generateRecipeData('Valid prompt')).rejects.toThrow(
+      await expect(service?.generateRecipeData('Valid prompt')).rejects.toThrow(
         InternalServerErrorException,
       );
     });
@@ -153,7 +154,7 @@ describe('AiService', () => {
         'Style: natural light, shallow depth of field, vibrant colors, soft shadows, no text, no labels, no people, professional food styling.',
       ].join('\n');
 
-      imageMock.mockResolvedValue({
+      imageMock?.mockResolvedValue({
         data: [
           {
             url: 'https://images.example.com/recipes/Creamy%20risotto%20with%20mushrooms.png',
@@ -161,7 +162,7 @@ describe('AiService', () => {
         ],
       });
 
-      const result = await service.generateRecipeImage(recipeData);
+      const result = await service?.generateRecipeImage(recipeData);
 
       expect(imageMock).toHaveBeenCalledWith({
         model: 'gpt-image-1',
@@ -174,19 +175,19 @@ describe('AiService', () => {
     });
 
     it('should throw an error when OpenAI does not return a URL', async () => {
-      imageMock.mockResolvedValue({
+      imageMock?.mockResolvedValue({
         data: [{}],
       });
 
-      await expect(service.generateRecipeImage(recipeData)).rejects.toThrow(
+      await expect(service?.generateRecipeImage(recipeData)).rejects.toThrow(
         InternalServerErrorException,
       );
     });
 
     it('should surface OpenAI errors when generating an image', async () => {
-      imageMock.mockRejectedValue(new Error('OpenAI failure'));
+      imageMock?.mockRejectedValue(new Error('OpenAI failure'));
 
-      await expect(service.generateRecipeImage(recipeData)).rejects.toThrow(
+      await expect(service?.generateRecipeImage(recipeData)).rejects.toThrow(
         InternalServerErrorException,
       );
     });

@@ -1,5 +1,6 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { MealType, RecipeDifficulty } from '@prisma/client';
+import type { Allergy } from '@prisma/client';
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
 import { PrismaService } from '../prisma/prisma.service';
@@ -12,7 +13,7 @@ interface ExpectedRecipeCreateData {
   mealTypes: MealType[];
   countriesOfOrigin: string[];
   diets: string[];
-  allergies: string[];
+  allergies: Allergy[];
   proteinType: string[];
   prepTimeMinutes: number;
   cookTimeMinutes: number;
