@@ -96,6 +96,18 @@ export const recipeDataSchema = z
   .strict()
   .describe('Formatted schema for generated recipe data');
 
+export const recipeValidSchema = z
+  .object({
+    isRecipeRelated: z.boolean(),
+  })
+  .strict()
+  .describe('Schema to validate if the prompt is recipe related');
+
+export const recipeValidFormat = zodTextFormat(
+  recipeValidSchema,
+  'recipe_validation',
+);
+
 export const recipeResponseFormat = zodTextFormat(
   recipeDataSchema,
   'recipe_generation',
