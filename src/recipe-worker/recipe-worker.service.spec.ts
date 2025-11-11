@@ -89,7 +89,7 @@ describe('RecipeWorkerService', () => {
       expect(findManyMock).toHaveBeenCalledWith({
         where: undefined,
         take: 50,
-        orderBy: { id: 'desc' },
+        orderBy: { createdAt: 'desc' },
       });
     });
 
@@ -108,7 +108,7 @@ describe('RecipeWorkerService', () => {
           status: { in: [RecipeStatus.PROCESSING_IMAGE, RecipeStatus.READY] },
         },
         take: 10,
-        orderBy: { id: 'desc' },
+        orderBy: { createdAt: 'desc' },
       });
     });
 
@@ -120,7 +120,7 @@ describe('RecipeWorkerService', () => {
       expect(findManyMock).toHaveBeenCalledWith({
         where: undefined,
         take: 100,
-        orderBy: { id: 'desc' },
+        orderBy: { createdAt: 'desc' },
       });
     });
   });

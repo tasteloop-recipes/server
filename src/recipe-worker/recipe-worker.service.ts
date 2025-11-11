@@ -27,16 +27,14 @@ export class RecipeWorkerService {
     statuses?: RecipeStatus[],
   ): Promise<RecipeWorker[]> {
     const sanitizedLimit = Math.min(Math.max(limit, 1), MAX_WORKERS_PAGE_SIZE);
-    const normalizedStatuses =
-      statuses?.map((status) => status).filter(Boolean) ?? [];
 
     return this.prisma.recipeWorker.findMany({
       where:
-        normalizedStatuses.length > 0
-          ? { status: { in: normalizedStatuses } }
+        statuses && statuses.length > 0
+          ? { status: { in: statuses } }
           : undefined,
       take: sanitizedLimit,
-      orderBy: { id: 'desc' },
+      orderBy: { createdAt: 'desc' },
     });
   }
 }
