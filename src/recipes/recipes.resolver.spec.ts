@@ -1,15 +1,12 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { NotFoundException } from '@nestjs/common';
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
 import { MealType, RecipeDifficulty } from '@prisma/client';
-import type { CreateRecipeInput } from './dto/create-recipe.input';
 import { RecipesResolver } from './recipes.resolver';
 import { RecipesService } from './recipes.service';
 
 type RecipesServiceMock = {
-  [K in 'findAll' | 'findOne' | 'create']: jest.MockedFunction<
-    RecipesService[K]
-  >;
+  [K in 'findAll' | 'findOne']: jest.MockedFunction<RecipesService[K]>;
 };
 
 describe('RecipesResolver', () => {
@@ -24,10 +21,6 @@ describe('RecipesResolver', () => {
       ReturnType<RecipesService['findOne']>,
       Parameters<RecipesService['findOne']>
     >(),
-    create: jest.fn<
-      ReturnType<RecipesService['create']>,
-      Parameters<RecipesService['create']>
-    >(),
   };
 
   const getResolver = (): RecipesResolver => {
@@ -41,7 +34,6 @@ describe('RecipesResolver', () => {
   const mockRecipe = {
     id: '1',
     name: 'Test Recipe',
-    prompt: 'Test prompt',
     difficulty: RecipeDifficulty.MEDIUM,
     mealTypes: [MealType.DINNER],
     countriesOfOrigin: [],
@@ -68,10 +60,6 @@ describe('RecipesResolver', () => {
         ReturnType<RecipesService['findOne']>,
         Parameters<RecipesService['findOne']>
       >(),
-      create: jest.fn<
-        ReturnType<RecipesService['create']>,
-        Parameters<RecipesService['create']>
-      >(),
     };
 
     moduleRef = await Test.createTestingModule({
@@ -91,7 +79,6 @@ describe('RecipesResolver', () => {
     resolver = null;
     recipesServiceMock.findAll.mockReset();
     recipesServiceMock.findOne.mockReset();
-    recipesServiceMock.create.mockReset();
     await moduleRef?.close();
     moduleRef = null;
   });
@@ -184,59 +171,6 @@ describe('RecipesResolver', () => {
       expect(recipesServiceMock.findOne).toHaveBeenCalledWith(
         'custom-uuid-123',
       );
-    });
-  });
-
-  describe('createRecipe mutation', () => {
-    it('should create a recipe with valid prompt', async () => {
-      recipesServiceMock.create.mockResolvedValueOnce(mockRecipe);
-
-      const input: CreateRecipeInput = { prompt: 'Test prompt' };
-      const result = await getResolver().createRecipe(input);
-
-      expect(result).toEqual(mockRecipe);
-      expect(recipesServiceMock.create).toHaveBeenCalledWith('Test prompt');
-    });
-
-    it('should throw BadRequestException for empty prompt', async () => {
-      recipesServiceMock.create.mockRejectedValueOnce(
-        new BadRequestException('Prompt is required to generate a recipe'),
-      );
-
-      await expect(getResolver().createRecipe({ prompt: '' })).rejects.toThrow(
-        BadRequestException,
-      );
-    });
-
-    it('should pass prompt to service', async () => {
-      const createdRecipe = { ...mockRecipe, prompt: 'Custom prompt' };
-      recipesServiceMock.create.mockResolvedValueOnce(createdRecipe);
-
-      await getResolver().createRecipe({ prompt: 'Custom prompt' });
-
-      expect(recipesServiceMock.create).toHaveBeenCalledWith('Custom prompt');
-    });
-
-    it('should handle whitespace in prompt', async () => {
-      recipesServiceMock.create.mockResolvedValueOnce(mockRecipe);
-
-      await getResolver().createRecipe({ prompt: '  Test prompt  ' });
-
-      expect(recipesServiceMock.create).toHaveBeenCalledWith('  Test prompt  ');
-    });
-
-    it('should work with complex prompts', async () => {
-      const complexPrompt =
-        'Create a vegan, gluten-free pasta recipe that serves 4 people and takes less than 30 minutes to prepare';
-      const createdRecipe = { ...mockRecipe, prompt: complexPrompt };
-      recipesServiceMock.create.mockResolvedValueOnce(createdRecipe);
-
-      const result = await getResolver().createRecipe({
-        prompt: complexPrompt,
-      });
-
-      expect(result).toEqual(createdRecipe);
-      expect(recipesServiceMock.create).toHaveBeenCalledWith(complexPrompt);
     });
   });
 });
