@@ -3,16 +3,31 @@ import {
   InternalServerErrorException,
 } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { Diet, MealType, ProteinType, RecipeDifficulty } from '@prisma/client';
+import {
+  Diet,
+  MealType,
+  ProteinType,
+  RecipeDifficulty,
+  type RecipeImage,
+} from '@prisma/client';
+import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import OpenAI from 'openai';
 import { AiService } from './ai.service';
 import type { RecipeData } from './ai.types';
 import { recipeResponseFormat, recipeValidFormat } from './ai.types';
+import { PrismaService } from '../prisma/prisma.service';
+import * as crypto from 'node:crypto';
 
 describe('AiService', () => {
   let parseMock: jest.Mock | undefined = undefined;
   let imageMock: jest.Mock | undefined = undefined;
   let moderationMock: jest.Mock | undefined = undefined;
+  let s3SendMock: jest.Mock<Promise<void>, [PutObjectCommand]> | undefined =
+    undefined;
+  let prismaCreateMock: jest.Mock<Promise<RecipeImage>, [unknown]> | undefined =
+    undefined;
+
+  const originalEnv = process.env;
 
   const createService = async (options?: {
     openAiClient?: Partial<OpenAI> | null;
@@ -20,6 +35,8 @@ describe('AiService', () => {
     parseMock = jest.fn();
     imageMock = jest.fn();
     moderationMock = jest.fn();
+    s3SendMock = jest.fn<Promise<void>, [PutObjectCommand]>();
+    prismaCreateMock = jest.fn<Promise<RecipeImage>, [unknown]>();
 
     const defaultOpenAiClient = {
       responses: {
@@ -44,6 +61,20 @@ describe('AiService', () => {
         {
           provide: OpenAI,
           useValue: providedClient,
+        },
+        {
+          provide: PrismaService,
+          useValue: {
+            recipeImage: {
+              create: prismaCreateMock,
+            },
+          },
+        },
+        {
+          provide: S3Client,
+          useValue: {
+            send: s3SendMock,
+          },
         },
       ],
     }).compile();
@@ -104,9 +135,24 @@ describe('AiService', () => {
   };
 
   let service: AiService | undefined = undefined;
+  const recipeId = 'recipe-id-123';
 
   beforeEach(async () => {
+    process.env = { ...originalEnv };
+    process.env.SPACES_ENDPOINT = 'http://localhost:9000';
+    process.env.SPACES_REGION = 'us-east-1';
+    process.env.SPACES_ACCESS_KEY_ID = 'local-test-access-key';
+    process.env.SPACES_SECRET_ACCESS_KEY = 'local-test-secret-key';
+    process.env.SPACES_BUCKET = 'tasteloop-dev';
+    process.env.SPACES_FORCE_PATH_STYLE = 'true';
+    process.env.SPACES_OBJECT_ACL = 'public-read';
     service = await createService();
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+    jest.clearAllMocks();
+    process.env = originalEnv;
   });
 
   describe('generateRecipeData', () => {
@@ -253,7 +299,14 @@ describe('AiService', () => {
   });
 
   describe('generateRecipeImage', () => {
-    it('should generate an image url using the recipe data', async () => {
+    it('should store image data and persist metadata', async () => {
+      if (service == null) {
+        throw new Error('AiService was not initialized');
+      }
+      if (prismaCreateMock == null || s3SendMock == null) {
+        throw new Error('Mocks were not initialized');
+      }
+
       const expectedPrompt = [
         `A high-quality, cinematic food photograph of "${recipeData.name}"`,
         recipeData.description,
@@ -263,42 +316,115 @@ describe('AiService', () => {
         'Style: natural light, shallow depth of field, vibrant colors, soft shadows, no text, no labels, no people, professional food styling.',
       ].join('\n');
 
+      const uuidSpy = jest
+        .spyOn(crypto, 'randomUUID')
+        .mockReturnValue('image-uuid');
+
+      const bucket = process.env.SPACES_BUCKET;
+      const region = process.env.SPACES_REGION;
+
+      if (bucket == null || region == null) {
+        throw new Error('Storage environment variables are not configured');
+      }
+
+      const createdImage: RecipeImage = {
+        id: 'recipe-image-id',
+        recipeId,
+        spaceName: bucket,
+        region,
+        objectKey: `recipes/${recipeId}/ai-crafted-dish-image-uuid.png`,
+        fileName: 'ai-crafted-dish-image-uuid.png',
+        contentType: 'image/png',
+        createdAt: new Date('2024-01-01T00:00:00.000Z'),
+        updatedAt: new Date('2024-01-01T00:00:00.000Z'),
+      };
+
       imageMock?.mockResolvedValue({
         data: [
           {
-            url: 'https://images.example.com/recipes/Creamy%20risotto%20with%20mushrooms.png',
+            b64_json: Buffer.from('fake-image-data').toString('base64'),
           },
         ],
       });
 
-      const result = await service?.generateRecipeImage(recipeData);
+      prismaCreateMock.mockImplementation(async (args) => {
+        expect(args).toEqual({
+          data: {
+            recipe: {
+              connect: {
+                id: recipeId,
+              },
+            },
+            spaceName: bucket,
+            region,
+            objectKey: `recipes/${recipeId}/ai-crafted-dish-image-uuid.png`,
+            fileName: 'ai-crafted-dish-image-uuid.png',
+            contentType: 'image/png',
+          },
+        });
+
+        return Promise.resolve(createdImage);
+      });
+
+      const result = await service.generateRecipeImage(recipeId, recipeData);
 
       expect(imageMock).toHaveBeenCalledWith({
         model: 'gpt-image-1',
         size: '1024x1024',
         prompt: expectedPrompt,
+        response_format: 'b64_json',
       });
-      expect(result).toBe(
-        'https://images.example.com/recipes/Creamy%20risotto%20with%20mushrooms.png',
-      );
+
+      expect(s3SendMock).toHaveBeenCalledTimes(1);
+      const [[putObjectCommand]] = s3SendMock.mock.calls;
+      expect(putObjectCommand).toBeInstanceOf(PutObjectCommand);
+      if (!(putObjectCommand instanceof PutObjectCommand)) {
+        throw new Error('Unexpected S3 command issued');
+      }
+
+      expect(putObjectCommand.input).toMatchObject({
+        Bucket: bucket,
+        Key: `recipes/${recipeId}/ai-crafted-dish-image-uuid.png`,
+        ContentType: 'image/png',
+        ACL: 'public-read',
+      });
+
+      expect(prismaCreateMock).toHaveBeenCalledTimes(1);
+      expect(result).toEqual(createdImage);
+
+      uuidSpy.mockRestore();
     });
 
-    it('should throw an error when OpenAI does not return a URL', async () => {
+    it('should throw an error when OpenAI does not return image data', async () => {
+      if (service == null) {
+        throw new Error('AiService was not initialized');
+      }
+
       imageMock?.mockResolvedValue({
         data: [{}],
       });
 
-      await expect(service?.generateRecipeImage(recipeData)).rejects.toThrow(
-        InternalServerErrorException,
-      );
+      await expect(
+        service.generateRecipeImage(recipeId, recipeData),
+      ).rejects.toThrow(InternalServerErrorException);
+
+      expect(s3SendMock).not.toHaveBeenCalled();
+      expect(prismaCreateMock).not.toHaveBeenCalled();
     });
 
     it('should surface OpenAI errors when generating an image', async () => {
+      if (service == null) {
+        throw new Error('AiService was not initialized');
+      }
+
       imageMock?.mockRejectedValue(new Error('OpenAI failure'));
 
-      await expect(service?.generateRecipeImage(recipeData)).rejects.toThrow(
-        InternalServerErrorException,
-      );
+      await expect(
+        service.generateRecipeImage(recipeId, recipeData),
+      ).rejects.toThrow(InternalServerErrorException);
+
+      expect(s3SendMock).not.toHaveBeenCalled();
+      expect(prismaCreateMock).not.toHaveBeenCalled();
     });
 
     it('should throw an InternalServerErrorException when OpenAI client is missing', async () => {
@@ -307,7 +433,7 @@ describe('AiService', () => {
       });
 
       await expect(
-        serviceWithoutClient.generateRecipeImage(recipeData),
+        serviceWithoutClient.generateRecipeImage(recipeId, recipeData),
       ).rejects.toThrow(InternalServerErrorException);
     });
   });
