@@ -13,6 +13,7 @@ import { RecipesModule } from './recipes/recipes.module';
 import { ApolloServerPluginLandingPageLocalDefault } from '@apollo/server/plugin/landingPage/default';
 import { AiModule } from './ai/ai.module';
 import { RecipeWorkerModule } from './recipe-worker/recipe-worker.module';
+import { QueueModule } from './queue/queue.module';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { RecipeWorkerModule } from './recipe-worker/recipe-worker.module';
       },
     ]),
     PrismaModule,
+    QueueModule,
     AiModule,
     RecipesModule,
     RecipeWorkerModule,

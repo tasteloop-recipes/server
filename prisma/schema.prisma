@@ -71,6 +71,8 @@ enum RecipeStatus {
   PROCESSING_IMAGE
   PENDING_MODIFICATIONS
   READY
+  ERROR
+  INVALID
 }
 
 model Recipe {

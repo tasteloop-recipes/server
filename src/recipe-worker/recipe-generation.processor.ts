@@ -1,0 +1,155 @@
+import { Processor, Process } from '@nestjs/bull';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { Allergy, RecipeStatus, type Prisma } from '@prisma/client';
+import type { Job } from 'bull';
+import { AiService } from '../ai/ai.service';
+import { PrismaService } from '../prisma/prisma.service';
+
+interface RecipeGenerationJobData {
+  workerId: string;
+}
+
+const ALLOWED_STATUSES = new Set<RecipeStatus>([
+  RecipeStatus.CREATED,
+  RecipeStatus.ERROR,
+]);
+
+const allergyLookup = new Map<string, Allergy>(
+  Object.values(Allergy).map((value) => [value.toUpperCase(), value]),
+);
+
+@Injectable()
+@Processor('recipe-generation')
+export class RecipeGenerationProcessor {
+  private readonly logger = new Logger(RecipeGenerationProcessor.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly aiService: AiService,
+  ) {}
+
+  @Process('generate-recipe')
+  async handle(job: Job<RecipeGenerationJobData>): Promise<void> {
+    const { workerId } = job.data;
+
+    const worker = await this.prisma.recipeWorker.findUnique({
+      where: { id: workerId },
+      include: { recipe: true },
+    });
+
+    if (worker == null) {
+      this.logger.warn(`Worker ${workerId} not found, discarding job.`);
+      return;
+    }
+
+    if (!ALLOWED_STATUSES.has(worker.status)) {
+      this.logger.warn(
+        `Worker ${workerId} is in status ${worker.status}; skipping job processing.`,
+      );
+      return;
+    }
+
+    await this.prisma.recipeWorker.update({
+      where: { id: worker.id },
+      data: { status: RecipeStatus.PROCESSING_RECIPE },
+    });
+
+    try {
+      const recipeData = await this.aiService.generateRecipeData(worker.prompt);
+
+      await this.prisma.$transaction(async (tx) => {
+        if (worker.recipe) {
+          await tx.recipe.delete({ where: { id: worker.recipe.id } });
+        }
+
+        const { nutritionFacts } = recipeData;
+        const miscFacts = recipeData.miscNutritionFacts;
+
+        const recipeCreateInput: Prisma.RecipeCreateInput = {
+          name: recipeData.name,
+          description: recipeData.description,
+          difficulty: recipeData.difficulty,
+          mealTypes: recipeData.mealTypes,
+          countriesOfOrigin: recipeData.countriesOfOrigin,
+          diets: recipeData.diets,
+          allergies: this.normalizeAllergies(recipeData.allergies),
+          proteinType: recipeData.proteinType,
+          prepTimeMinutes: recipeData.prepTimeMinutes,
+          cookTimeMinutes: recipeData.cookTimeMinutes,
+          preparation: recipeData.preparation,
+          instructions: recipeData.instructions,
+          servingSize: recipeData.servingSize,
+          worker: { connect: { id: worker.id } },
+          ingredients: {
+            create: recipeData.ingredients.map((ingredient) => ({
+              name: ingredient.name,
+              amount: ingredient.amount,
+            })),
+          },
+          nutritionFacts: {
+            create: {
+              calories: nutritionFacts.calories,
+              carbs: nutritionFacts.carbs,
+              fat: nutritionFacts.fat,
+              protein: nutritionFacts.protein,
+              fiber: nutritionFacts.fiber,
+            },
+          },
+          miscNutritionFacts: {
+            create: miscFacts.map((misc) => ({
+              label: misc.label,
+              value: misc.value,
+              unit: misc.unit ?? null,
+            })),
+          },
+        };
+
+        await tx.recipe.create({ data: recipeCreateInput });
+      });
+
+      await this.prisma.recipeWorker.update({
+        where: { id: worker.id },
+        data: { status: RecipeStatus.RECIPE_CREATED },
+      });
+    } catch (error: unknown) {
+      if (error instanceof BadRequestException) {
+        await this.prisma.recipeWorker.update({
+          where: { id: worker.id },
+          data: { status: RecipeStatus.INVALID },
+        });
+        this.logger.warn(
+          `Worker ${worker.id} prompt rejected: ${error.message}`,
+        );
+        return;
+      }
+
+      await this.prisma.recipeWorker.update({
+        where: { id: worker.id },
+        data: { status: RecipeStatus.ERROR },
+      });
+
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      this.logger.error(
+        `Failed to generate recipe for worker ${worker.id}: ${errorMessage}`,
+      );
+
+      throw error;
+    }
+  }
+
+  private normalizeAllergies(values: string[]): Allergy[] {
+    const normalized = new Set<Allergy>();
+
+    for (const value of values) {
+      const formatted = value.trim().toUpperCase().replace(/\s+/g, '_');
+      const match = allergyLookup.get(formatted);
+
+      if (match) {
+        normalized.add(match);
+      }
+    }
+
+    return [...normalized];
+  }
+}

@@ -1,129 +1,92 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# TasteLoop Server
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+TasteLoop Server is a NestJS GraphQL API that generates recipes with AI and stores them using Prisma. The application now includes a background queue that processes `RecipeWorker` jobs and turns prompts into fully hydrated recipe records.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## Prerequisites
 
-## Description
+- Node.js 20+
+- npm 10+
+- PostgreSQL database
+- Redis-compatible queue (Valkey on DigitalOcean works out of the box)
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+Copy `.env.example` to `.env` and update the following variables:
 
-## Project setup
+- `DATABASE_URL`
+- `OPENAI_API_KEY`
+- `REDIS_HOST`, `REDIS_PORT`, `REDIS_USERNAME`, `REDIS_PASSWORD` (optional if your queue is unauthenticated)
+
+## Installation
 
 ```bash
-$ npm install
+npm ci
+npm run prisma:generate
 ```
 
-## Prisma & Database
+## Local development
 
-- Generate the Prisma client after updating the schema:
+### Run the API server
 
 ```bash
-$ npm run prisma:generate
+npm run start:dev
 ```
 
-- Run development migrations (creates new migrations when schema changes):
+### Run the recipe queue worker
+
+The worker runs independently of the HTTP server so it can scale separately.
 
 ```bash
-$ npm run prisma:migrate
+npm run start:queue:dev
 ```
 
-- Apply committed migrations without prompting (useful for CI/CD and Docker):
-
-```bash
-$ npm run prisma:migrate:prod
-```
-
-- Keep the schema formatting consistent:
-
-```bash
-$ npm run prisma:format      # writes changes
-$ npm run prisma:format:check # fails if formatting is required
-```
-
-- Launch Prisma Studio while developing:
-
-```bash
-$ npm run prisma:studio
-```
-
-> The default `.env.example` is configured for the local Postgres instance declared in `docker-compose.yml`. Update `DATABASE_URL` if your database differs.
+Both commands watch for file changes and reload automatically.
 
 ## Docker workflow
 
-```bash
-# start postgres and the NestJS app with hot reload + migrations
-$ docker compose up --build
-```
-
-The application container will install dependencies, generate the Prisma client, run pending migrations, and then start in watch mode. A healthy Postgres instance is required before the app starts.
-
-## Compile and run the project locally
+The repository ships with a `docker-compose.yml` that provisions PostgreSQL, Valkey, the API server, and the queue worker.
 
 ```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+docker compose up --build
 ```
 
-## Run tests
+- The `app` service hosts the GraphQL API at `http://localhost:3000`.
+- The `queue` service runs the background worker via `npm run start:queue:dev`.
+- The `valkey` service provides a Redis-compatible queue backend.
+
+You can override `REDIS_*` variables in `.env` to point to a managed Valkey instance on DigitalOcean.
+
+## Database helpers
 
 ```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+npm run prisma:migrate         # create a new migration (development)
+npm run prisma:migrate:prod    # apply committed migrations without prompts
+npm run prisma:format          # format schema.prisma
+npm run prisma:studio          # inspect the database visually
 ```
 
-## Resources
+## Testing and linting
 
-Check out a few resources that may come in handy when working with NestJS:
+```bash
+npm run lint && npm run format && npm run prisma:format
+npm run test
+npm run test:cov
+npm run test:e2e
+```
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+## Production build
 
-## Support
+```bash
+npm run build
+npm run start:prod           # starts the compiled HTTP server
+npm run start:queue          # starts the compiled queue worker
+```
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+## Project structure highlights
 
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+- `src/ai` – AI service that talks to OpenAI.
+- `src/recipe-worker` – GraphQL resolver, service, and queue processor for `RecipeWorker` jobs.
+- `src/queue` – Queue configuration and worker bootstrap.
+- `prisma/` – Prisma schema and migrations.
 
 ## License
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+UNLICENSED

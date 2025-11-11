@@ -1,7 +1,12 @@
-import { BadRequestException } from '@nestjs/common';
+import {
+  BadRequestException,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { RecipeStatus } from '@prisma/client';
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
+import { getQueueToken } from '@nestjs/bull';
+import type { Queue } from 'bull';
 import { PrismaService } from '../prisma/prisma.service';
 import { RecipeWorkerService } from './recipe-worker.service';
 
@@ -10,6 +15,9 @@ describe('RecipeWorkerService', () => {
   let service: RecipeWorkerService | null = null;
   let createMock: jest.Mock = jest.fn();
   let findManyMock: jest.Mock = jest.fn();
+  let updateMock: jest.Mock = jest.fn();
+  let queueAddMock: jest.MockedFunction<Queue<{ workerId: string }>['add']> =
+    jest.fn();
 
   const getService = (): RecipeWorkerService => {
     if (!service) {
@@ -28,6 +36,11 @@ describe('RecipeWorkerService', () => {
   beforeEach(async () => {
     createMock = jest.fn();
     findManyMock = jest.fn();
+    updateMock = jest.fn();
+    queueAddMock = jest.fn<
+      ReturnType<Queue<{ workerId: string }>['add']>,
+      Parameters<Queue<{ workerId: string }>['add']>
+    >();
 
     moduleRef = await Test.createTestingModule({
       providers: [
@@ -38,7 +51,14 @@ describe('RecipeWorkerService', () => {
             recipeWorker: {
               create: createMock,
               findMany: findManyMock,
+              update: updateMock,
             },
+          },
+        },
+        {
+          provide: getQueueToken('recipe-generation'),
+          useValue: {
+            add: queueAddMock,
           },
         },
       ],
@@ -55,9 +75,10 @@ describe('RecipeWorkerService', () => {
   });
 
   describe('create', () => {
-    it('creates a worker with trimmed prompt', async () => {
+    it('creates a worker with trimmed prompt and enqueues a job', async () => {
       const expectedWorker = { ...mockWorker, prompt: 'Create pasta' };
       createMock.mockResolvedValueOnce(expectedWorker);
+      queueAddMock.mockResolvedValueOnce(undefined);
 
       const result = await getService().create('  Create pasta  ');
 
@@ -65,6 +86,23 @@ describe('RecipeWorkerService', () => {
       expect(createMock).toHaveBeenCalledWith({
         data: { prompt: 'Create pasta' },
       });
+      expect(queueAddMock).toHaveBeenCalledWith(
+        'generate-recipe',
+        { workerId: expectedWorker.id },
+        expect.anything(),
+      );
+
+      const jobOptions = queueAddMock.mock.calls[0]?.[2];
+      expect(jobOptions).toBeDefined();
+      expect(jobOptions?.attempts).toBe(3);
+
+      const backoff = jobOptions?.backoff;
+      const isBackoffObject = backoff != null && typeof backoff === 'object';
+      expect(isBackoffObject).toBe(true);
+
+      if (isBackoffObject) {
+        expect(backoff).toMatchObject({ type: 'exponential' });
+      }
     });
 
     it.each([undefined, '', '   '])(
@@ -74,8 +112,24 @@ describe('RecipeWorkerService', () => {
           BadRequestException,
         );
         expect(createMock).not.toHaveBeenCalled();
+        expect(queueAddMock).not.toHaveBeenCalled();
       },
     );
+
+    it('marks the worker as error if enqueueing fails', async () => {
+      const expectedWorker = { ...mockWorker, prompt: 'Create pasta' };
+      createMock.mockResolvedValueOnce(expectedWorker);
+      queueAddMock.mockRejectedValueOnce(new Error('connection failed'));
+
+      await expect(getService().create('Create pasta')).rejects.toThrow(
+        InternalServerErrorException,
+      );
+
+      expect(updateMock).toHaveBeenCalledWith({
+        where: { id: expectedWorker.id },
+        data: { status: RecipeStatus.ERROR },
+      });
+    });
   });
 
   describe('findMany', () => {
