@@ -27,9 +27,6 @@ export class RecipeModel {
   @Field()
   name!: string;
 
-  @Field()
-  prompt!: string;
-
   @Field(() => ID, { nullable: true })
   authorId!: string | null;
 

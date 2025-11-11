@@ -64,11 +64,18 @@ enum Allergy {
   GLUTEN
 }
 
+enum RecipeStatus {
+  CREATED
+  PROCESSING_RECIPE
+  RECIPE_CREATED
+  PROCESSING_IMAGE
+  PENDING_MODIFICATIONS
+  READY
+}
+
 model Recipe {
   id                 String                @id @default(uuid())
   name               String
-  /// User-inputted prompt to generate the recipe with AI
-  prompt             String                @db.VarChar(1000)
   /// Author can be null if recipe was generated in web demo, which doesn't require authentication
   author             User?                 @relation(fields: [authorId], references: [id])
   authorId           String?
@@ -88,10 +95,22 @@ model Recipe {
   nutritionFacts     RecipeNutritionFact[]
   miscNutritionFacts MiscNutritionFact[]
   image              RecipeImage?
+  // Worker is required; FK owned by Recipe so the relation can be required.
+  workerId           String                @unique
+  worker             RecipeWorker          @relation(fields: [workerId], references: [id], onDelete: Cascade)
   createdAt          DateTime              @default(now())
   updatedAt          DateTime              @updatedAt
 
   @@index([authorId])
+}
+
+model RecipeWorker {
+  id     String       @id @default(uuid())
+  status RecipeStatus @default(CREATED)
+  // Back relation remains optional.
+  recipe Recipe?
+  /// User-inputted prompt to generate the recipe with AI
+  prompt String       @db.VarChar(1000)
 }
 
 model RecipeIngredient {

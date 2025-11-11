@@ -2,7 +2,7 @@ import { Field, InputType } from '@nestjs/graphql';
 import { IsNotEmpty, IsString, MaxLength } from 'class-validator';
 
 @InputType()
-export class CreateRecipeInput {
+export class CreateRecipeWorkerInput {
   @Field()
   @IsNotEmpty()
   @IsString()
