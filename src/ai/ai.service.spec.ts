@@ -7,17 +7,19 @@ import { Diet, MealType, ProteinType, RecipeDifficulty } from '@prisma/client';
 import OpenAI from 'openai';
 import { AiService } from './ai.service';
 import type { RecipeData } from './ai.types';
-import { recipeResponseFormat } from './ai.types';
+import { recipeResponseFormat, recipeValidFormat } from './ai.types';
 
 describe('AiService', () => {
   let parseMock: jest.Mock | undefined = undefined;
   let imageMock: jest.Mock | undefined = undefined;
+  let moderationMock: jest.Mock | undefined = undefined;
 
   const createService = async (options?: {
     openAiClient?: Partial<OpenAI> | null;
   }): Promise<AiService> => {
     parseMock = jest.fn();
     imageMock = jest.fn();
+    moderationMock = jest.fn();
 
     const defaultOpenAiClient = {
       responses: {
@@ -25,6 +27,9 @@ describe('AiService', () => {
       },
       images: {
         generate: imageMock,
+      },
+      moderations: {
+        create: moderationMock,
       },
     };
 
@@ -107,31 +112,111 @@ describe('AiService', () => {
   describe('generateRecipeData', () => {
     it('should return the recipe data parsed by OpenAI', async () => {
       const prompt = ' Create a chicken dinner with Mediterranean flavors ';
-      parseMock?.mockResolvedValue({
+      const sanitizedPrompt = prompt.trim();
+
+      // Mock moderation
+      moderationMock?.mockResolvedValue({
+        results: [{ flagged: false }],
+      });
+
+      // Mock recipe validation
+      parseMock?.mockResolvedValueOnce({
+        output_parsed: { isRecipeRelated: true },
+      });
+
+      // Mock recipe generation
+      parseMock?.mockResolvedValueOnce({
         output_parsed: recipeData,
       });
 
       const result = await service?.generateRecipeData(prompt);
 
-      expect(parseMock).toHaveBeenCalledWith({
-        model: 'gpt-5',
-        input: prompt,
+      // Check moderation was called with sanitized prompt
+      expect(moderationMock).toHaveBeenCalledWith({
+        model: 'omni-moderation-latest',
+        input: sanitizedPrompt,
+      });
+
+      // Check validation was called with sanitized prompt
+      expect(parseMock).toHaveBeenNthCalledWith(1, {
+        model: 'gpt-5-nano',
+        input: sanitizedPrompt,
+        instructions:
+          'Determine if the user prompt is related to food and cooking recipes. The prompt will be used to generate a cooking recipe if it is relevant.',
+        text: { format: recipeValidFormat },
+      });
+
+      // Check recipe generation was called with sanitized prompt
+      expect(parseMock).toHaveBeenNthCalledWith(2, {
+        model: 'gpt-5-mini',
+        input: sanitizedPrompt,
         instructions:
           'You are a helpful assistant that provides detailed cooking recipes based on user prompts. All the instructions and details should be should be clear, concise, and easy to follow.',
         text: { format: recipeResponseFormat },
       });
+
       expect(result).toEqual(recipeData);
+    });
+
+    it('should throw a BadRequestException when moderation flags content', async () => {
+      const prompt = 'Inappropriate content';
+
+      moderationMock?.mockResolvedValue({
+        results: [{ flagged: true }],
+      });
+
+      await expect(service?.generateRecipeData(prompt)).rejects.toThrow(
+        new BadRequestException(
+          'The provided prompt violates content policies.',
+        ),
+      );
+
+      expect(moderationMock).toHaveBeenCalledWith({
+        model: 'omni-moderation-latest',
+        input: prompt,
+      });
+      expect(parseMock).not.toHaveBeenCalled();
+    });
+
+    it('should throw a BadRequestException when prompt is not recipe-related', async () => {
+      const prompt = 'Tell me about quantum physics';
+
+      moderationMock?.mockResolvedValue({
+        results: [{ flagged: false }],
+      });
+
+      parseMock?.mockResolvedValueOnce({
+        output_parsed: { isRecipeRelated: false },
+      });
+
+      await expect(service?.generateRecipeData(prompt)).rejects.toThrow(
+        new BadRequestException(
+          'The provided prompt does not seem to be related to recipes.',
+        ),
+      );
+
+      expect(moderationMock).toHaveBeenCalled();
+      expect(parseMock).toHaveBeenCalledTimes(1);
     });
 
     it('should throw a BadRequestException when prompt is empty', async () => {
       await expect(service?.generateRecipeData('   ')).rejects.toThrow(
         BadRequestException,
       );
+      expect(moderationMock).not.toHaveBeenCalled();
       expect(parseMock).not.toHaveBeenCalled();
     });
 
     it('should throw when OpenAI does not return recipe data', async () => {
-      parseMock?.mockResolvedValue({
+      moderationMock?.mockResolvedValue({
+        results: [{ flagged: false }],
+      });
+
+      parseMock?.mockResolvedValueOnce({
+        output_parsed: { isRecipeRelated: true },
+      });
+
+      parseMock?.mockResolvedValueOnce({
         output_parsed: null,
       });
 
@@ -141,7 +226,15 @@ describe('AiService', () => {
     });
 
     it('should surface OpenAI errors as InternalServerErrorException', async () => {
-      parseMock?.mockRejectedValue(new Error('OpenAI failure'));
+      moderationMock?.mockResolvedValue({
+        results: [{ flagged: false }],
+      });
+
+      parseMock?.mockResolvedValueOnce({
+        output_parsed: { isRecipeRelated: true },
+      });
+
+      parseMock?.mockRejectedValueOnce(new Error('OpenAI failure'));
 
       await expect(service?.generateRecipeData('Valid prompt')).rejects.toThrow(
         InternalServerErrorException,

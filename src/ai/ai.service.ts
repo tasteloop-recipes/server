@@ -5,7 +5,11 @@ import {
   InternalServerErrorException,
 } from '@nestjs/common';
 import OpenAI from 'openai';
-import { RecipeData, recipeResponseFormat } from './ai.types';
+import {
+  RecipeData,
+  recipeResponseFormat,
+  recipeValidFormat,
+} from './ai.types';
 
 @Injectable()
 export class AiService {
@@ -29,9 +33,37 @@ export class AiService {
     }
 
     try {
+      // Step 1: Check moderation
+      const moderation = await this.openai.moderations.create({
+        model: 'omni-moderation-latest',
+        input: sanitizedPrompt,
+      });
+
+      if (moderation.results[0].flagged) {
+        throw new BadRequestException(
+          'The provided prompt violates content policies.',
+        );
+      }
+
+      // Step 2: Determine if prompt is related to recipes
+      const validRecipe = await this.openai.responses.parse({
+        model: 'gpt-5-nano',
+        input: sanitizedPrompt,
+        instructions:
+          'Determine if the user prompt is related to food and cooking recipes. The prompt will be used to generate a cooking recipe if it is relevant.',
+        text: { format: recipeValidFormat },
+      });
+
+      if (validRecipe.output_parsed?.isRecipeRelated === false) {
+        throw new BadRequestException(
+          'The provided prompt does not seem to be related to recipes.',
+        );
+      }
+
+      // Step 3: Generate recipe data
       const response = await this.openai.responses.parse({
-        model: 'gpt-5',
-        input: prompt,
+        model: 'gpt-5-mini',
+        input: sanitizedPrompt,
         instructions:
           'You are a helpful assistant that provides detailed cooking recipes based on user prompts. All the instructions and details should be should be clear, concise, and easy to follow.',
         text: { format: recipeResponseFormat },
@@ -47,6 +79,9 @@ export class AiService {
 
       return parsedRecipe;
     } catch (error: unknown) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
       throw new InternalServerErrorException(error);
     }
   }
