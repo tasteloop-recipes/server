@@ -1,9 +1,5 @@
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
-import { MealType, Recipe, RecipeDifficulty } from '@prisma/client';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { Recipe } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { RecipesPage } from './models/recipes-page.model';
 
@@ -49,33 +45,5 @@ export class RecipesService {
     }
 
     return recipe;
-  }
-
-  async create(prompt?: string): Promise<Recipe> {
-    const trimmedPrompt = prompt?.trim();
-
-    if (trimmedPrompt === undefined || trimmedPrompt === '') {
-      throw new BadRequestException('Prompt is required to generate a recipe');
-    }
-
-    // Placeholder recipe data; will be replaced with AI-generated content later.
-    return this.prisma.recipe.create({
-      data: {
-        name: 'Generated recipe (pending details)',
-        prompt: trimmedPrompt,
-        difficulty: RecipeDifficulty.MEDIUM,
-        mealTypes: [MealType.DINNER],
-        countriesOfOrigin: [],
-        diets: [],
-        allergies: [],
-        proteinType: [],
-        prepTimeMinutes: 0,
-        cookTimeMinutes: 0,
-        description: 'Recipe details will be generated shortly.',
-        preparation: [],
-        instructions: [],
-        servingSize: 'To be determined',
-      },
-    });
   }
 }
