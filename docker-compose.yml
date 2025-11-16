@@ -1,4 +1,17 @@
 services:
+  valkey:
+    image: valkey/valkey:8-alpine
+    container_name: tasteloop-valkey
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - tasteloop-network
+
   postgres:
     image: postgres:17-alpine
     container_name: tasteloop-postgres
@@ -75,8 +88,14 @@ services:
       PORT: ${PORT}
       SPACES_ENDPOINT: http://object-storage:9000
       SPACES_FORCE_PATH_STYLE: "true"
+      REDIS_HOST: valkey
+      REDIS_PORT: 6379
+      REDIS_USERNAME: ${REDIS_USERNAME:-}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
     depends_on:
       postgres:
+        condition: service_healthy
+      valkey:
         condition: service_healthy
       object-storage:
         condition: service_started
@@ -86,6 +105,34 @@ services:
       - .:/app
       - /app/node_modules
     command: sh -c "npm ci && npm run prisma:generate && npm run prisma:migrate:prod && npm run start:dev"
+    networks:
+      - tasteloop-network
+    restart: unless-stopped
+
+  queue:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: tasteloop-queue
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: ${NODE_ENV}
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      REDIS_HOST: valkey
+      REDIS_PORT: 6379
+      REDIS_USERNAME: ${REDIS_USERNAME:-}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+    volumes:
+      - .:/app
+      - /app/node_modules
+    command: >-
+      sh -c "npm ci && npm run prisma:generate && npm run start:queue:dev"
     networks:
       - tasteloop-network
     restart: unless-stopped
