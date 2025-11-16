@@ -51,10 +51,22 @@ export class RecipeGenerationProcessor extends WorkerHost {
       return;
     }
 
-    await this.prisma.recipeWorker.update({
-      where: { id: worker.id },
-      data: { status: RecipeStatus.PROCESSING_RECIPE },
-    });
+    const { count: updatedWorkers } = await this.prisma.recipeWorker.updateMany(
+      {
+        where: {
+          id: worker.id,
+          status: { in: Array.from(ALLOWED_STATUSES) },
+        },
+        data: { status: RecipeStatus.PROCESSING_RECIPE },
+      },
+    );
+
+    if (updatedWorkers === 0) {
+      this.logger.warn(
+        `Worker ${workerId} status changed before processing; skipping job processing.`,
+      );
+      return;
+    }
 
     try {
       const recipeData = await this.aiService.generateRecipeData(worker.prompt);
