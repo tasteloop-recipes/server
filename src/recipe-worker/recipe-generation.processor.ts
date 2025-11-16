@@ -12,6 +12,7 @@ interface RecipeGenerationJobData {
 const ALLOWED_STATUSES = new Set<RecipeStatus>([
   RecipeStatus.CREATED,
   RecipeStatus.ERROR,
+  RecipeStatus.PROCESSING_RECIPE,
 ]);
 
 const allergyLookup = new Map<string, Allergy>(
