@@ -5,6 +5,12 @@ import type { Job } from 'bullmq';
 import { AiService } from '../ai/ai.service';
 import { recipeResponseFormat } from '../ai/ai.types';
 import { PrismaService } from '../prisma/prisma.service';
+import { PubSubService } from '../pubsub/pubsub.service';
+import {
+  RECIPES_UPDATED_EVENT,
+  RECIPE_UPDATED_EVENT,
+  WORKERS_UPDATED_EVENT,
+} from '../pubsub/pubsub.constants';
 
 interface RecipeGenerationJobData {
   workerId: string;
@@ -29,6 +35,7 @@ export class RecipeGenerationProcessor extends WorkerHost {
   constructor(
     private readonly prisma: PrismaService,
     private readonly aiService: AiService,
+    private readonly pubSub: PubSubService,
   ) {
     super();
   }
@@ -70,6 +77,8 @@ export class RecipeGenerationProcessor extends WorkerHost {
       return;
     }
 
+    await this.publishWorkerStatus(worker.id, RecipeStatus.PROCESSING_RECIPE);
+
     try {
       const timeoutPromise = new Promise<never>((_, reject) =>
         setTimeout(() => {
@@ -81,7 +90,7 @@ export class RecipeGenerationProcessor extends WorkerHost {
         typeof recipeResponseFormat.__output
       >([this.aiService.generateRecipeData(worker.prompt), timeoutPromise]);
 
-      await this.prisma.$transaction(async (tx) => {
+      const recipe = await this.prisma.$transaction(async (tx) => {
         if (worker.recipe) {
           await tx.recipe.delete({ where: { id: worker.recipe.id } });
         }
@@ -128,29 +137,36 @@ export class RecipeGenerationProcessor extends WorkerHost {
           },
         };
 
-        await tx.recipe.create({ data: recipeCreateInput });
+        return tx.recipe.create({ data: recipeCreateInput });
       });
 
-      await this.prisma.recipeWorker.update({
+      await this.publishRecipeUpdates(recipe.id);
+
+      const updatedWorker = await this.prisma.recipeWorker.update({
         where: { id: worker.id },
         data: { status: RecipeStatus.RECIPE_CREATED },
       });
+
+      await this.publishWorkerStatus(updatedWorker.id, updatedWorker.status);
     } catch (error: unknown) {
       if (error instanceof BadRequestException) {
-        await this.prisma.recipeWorker.update({
+        const invalidWorker = await this.prisma.recipeWorker.update({
           where: { id: worker.id },
           data: { status: RecipeStatus.INVALID },
         });
+        await this.publishWorkerStatus(invalidWorker.id, invalidWorker.status);
         this.logger.warn(
           `Worker ${worker.id} prompt rejected: ${error.message}`,
         );
         return;
       }
 
-      await this.prisma.recipeWorker.update({
+      const erroredWorker = await this.prisma.recipeWorker.update({
         where: { id: worker.id },
         data: { status: RecipeStatus.ERROR },
       });
+
+      await this.publishWorkerStatus(erroredWorker.id, erroredWorker.status);
 
       const errorMessage =
         error instanceof Error ? error.message : String(error);
@@ -160,6 +176,20 @@ export class RecipeGenerationProcessor extends WorkerHost {
 
       throw error;
     }
+  }
+
+  private async publishWorkerStatus(
+    workerId: string,
+    status: RecipeStatus,
+  ): Promise<void> {
+    await this.pubSub.publish(WORKERS_UPDATED_EVENT, { workerId, status });
+  }
+
+  private async publishRecipeUpdates(recipeId: string): Promise<void> {
+    await Promise.all([
+      this.pubSub.publish(RECIPES_UPDATED_EVENT, { recipeId }),
+      this.pubSub.publish(RECIPE_UPDATED_EVENT, { recipeId }),
+    ]);
   }
 
   private normalizeAllergies(values: string[]): Allergy[] {

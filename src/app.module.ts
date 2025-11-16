@@ -14,6 +14,7 @@ import { ApolloServerPluginLandingPageLocalDefault } from '@apollo/server/plugin
 import { AiModule } from './ai/ai.module';
 import { RecipeWorkerModule } from './recipe-worker/recipe-worker.module';
 import { QueueModule } from './queue/queue.module';
+import { PubSubModule } from './pubsub/pubsub.module';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { QueueModule } from './queue/queue.module';
     AiModule,
     RecipesModule,
     RecipeWorkerModule,
+    PubSubModule,
   ],
   providers: [
     AppService,

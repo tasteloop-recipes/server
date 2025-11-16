@@ -7,6 +7,8 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { type RecipeWorker, RecipeStatus } from '@prisma/client';
 import type { Queue } from 'bullmq';
 import { PrismaService } from '../prisma/prisma.service';
+import { PubSubService } from '../pubsub/pubsub.service';
+import { WORKERS_UPDATED_EVENT } from '../pubsub/pubsub.constants';
 
 const MAX_WORKERS_PAGE_SIZE = 100;
 
@@ -16,6 +18,7 @@ export class RecipeWorkerService {
     private readonly prisma: PrismaService,
     @InjectQueue('recipe-generation')
     private readonly recipeGenerationQueue: Queue<{ workerId: string }>,
+    private readonly pubSub: PubSubService,
   ) {}
 
   async create(prompt?: string): Promise<RecipeWorker> {
@@ -30,6 +33,8 @@ export class RecipeWorkerService {
         prompt: trimmedPrompt,
       },
     });
+
+    await this.publishWorkerStatus(worker.id, worker.status);
 
     try {
       await this.recipeGenerationQueue.add(
@@ -46,10 +51,12 @@ export class RecipeWorkerService {
         },
       );
     } catch (error: unknown) {
-      await this.prisma.recipeWorker.update({
+      const failedWorker = await this.prisma.recipeWorker.update({
         where: { id: worker.id },
         data: { status: RecipeStatus.ERROR },
       });
+
+      await this.publishWorkerStatus(failedWorker.id, failedWorker.status);
 
       throw new InternalServerErrorException(
         'Failed to enqueue recipe generation job',
@@ -73,6 +80,16 @@ export class RecipeWorkerService {
           : undefined,
       take: sanitizedLimit,
       orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  private async publishWorkerStatus(
+    workerId: string,
+    status: RecipeStatus,
+  ): Promise<void> {
+    await this.pubSub.publish(WORKERS_UPDATED_EVENT, {
+      workerId,
+      status,
     });
   }
 }

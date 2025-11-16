@@ -4,11 +4,13 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { RecipeWorkerResolver } from './recipe-worker.resolver';
 import { RecipeWorkerService } from './recipe-worker.service';
 import { QueueModule } from '../queue/queue.module';
+import { PubSubModule } from '../pubsub/pubsub.module';
 
 @Module({
   imports: [
     PrismaModule,
     QueueModule,
+    PubSubModule,
     BullModule.registerQueue({
       name: 'recipe-generation',
     }),
