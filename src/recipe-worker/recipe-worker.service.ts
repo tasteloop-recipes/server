@@ -34,7 +34,7 @@ export class RecipeWorkerService {
     try {
       await this.recipeGenerationQueue.add(
         'generate-recipe',
-        { workerId: worker.id, timeoutMs: 300000 }, // 5 minutes
+        { workerId: worker.id },
         {
           attempts: 3,
           backoff: {
