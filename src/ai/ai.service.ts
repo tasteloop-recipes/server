@@ -4,7 +4,11 @@ import {
   Injectable,
   InternalServerErrorException,
 } from '@nestjs/common';
-import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import {
+  ObjectCannedACL,
+  PutObjectCommand,
+  S3Client,
+} from '@aws-sdk/client-s3';
 import { RecipeImage } from '@prisma/client';
 import OpenAI from 'openai';
 import {
@@ -106,7 +110,7 @@ export class AiService {
 
     const bucket = process.env.SPACES_BUCKET;
     const region = process.env.SPACES_REGION;
-    const acl = process.env.SPACES_OBJECT_ACL ?? 'public-read';
+    const acl = this.resolveObjectAcl(process.env.SPACES_OBJECT_ACL);
 
     if (bucket == null || region == null) {
       throw new InternalServerErrorException(
@@ -147,8 +151,23 @@ export class AiService {
         }),
       );
 
-      return await this.prisma.recipeImage.create({
-        data: {
+      return await this.prisma.recipeImage.upsert({
+        where: {
+          recipeId,
+        },
+        create: {
+          recipe: {
+            connect: {
+              id: recipeId,
+            },
+          },
+          spaceName: bucket,
+          region,
+          objectKey,
+          fileName,
+          contentType,
+        },
+        update: {
           recipe: {
             connect: {
               id: recipeId,
@@ -164,6 +183,18 @@ export class AiService {
     } catch (error: unknown) {
       throw new InternalServerErrorException(error);
     }
+  }
+
+  private resolveObjectAcl(value: string | undefined): ObjectCannedACL {
+    if (value == null) {
+      return ObjectCannedACL.public_read;
+    }
+
+    return (
+      Object.values(ObjectCannedACL).find(
+        (allowedAcl) => allowedAcl === value,
+      ) ?? ObjectCannedACL.public_read
+    );
   }
 
   private buildImagePrompt(recipe: RecipeData): string {
