@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { BullModule } from '@nestjs/bull';
+import { BullModule } from '@nestjs/bullmq';
 
 const parsePort = (value: string | undefined, fallback: number): number => {
   const parsed = Number.parseInt(value ?? '', 10);
@@ -9,7 +9,7 @@ const parsePort = (value: string | undefined, fallback: number): number => {
 @Module({
   imports: [
     BullModule.forRoot({
-      redis: {
+      connection: {
         host: process.env.REDIS_HOST ?? 'localhost',
         port: parsePort(process.env.REDIS_PORT, 6379),
         username: process.env.REDIS_USERNAME,

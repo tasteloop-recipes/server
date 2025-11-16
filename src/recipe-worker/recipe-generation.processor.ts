@@ -1,7 +1,7 @@
-import { Processor, Process } from '@nestjs/bull';
+import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { Allergy, RecipeStatus, type Prisma } from '@prisma/client';
-import type { Job } from 'bull';
+import type { Job } from 'bullmq';
 import { AiService } from '../ai/ai.service';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -20,16 +20,17 @@ const allergyLookup = new Map<string, Allergy>(
 
 @Injectable()
 @Processor('recipe-generation')
-export class RecipeGenerationProcessor {
+export class RecipeGenerationProcessor extends WorkerHost {
   private readonly logger = new Logger(RecipeGenerationProcessor.name);
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly aiService: AiService,
-  ) {}
+  ) {
+    super();
+  }
 
-  @Process('generate-recipe')
-  async handle(job: Job<RecipeGenerationJobData>): Promise<void> {
+  async process(job: Job<RecipeGenerationJobData>): Promise<void> {
     const { workerId } = job.data;
 
     const worker = await this.prisma.recipeWorker.findUnique({

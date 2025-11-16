@@ -2,7 +2,7 @@ import { BadRequestException } from '@nestjs/common';
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
 import { RecipeStatus, type Allergy, type Prisma } from '@prisma/client';
-import type { Job } from 'bull';
+import type { Job } from 'bullmq';
 import { AiService } from '../ai/ai.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RecipeGenerationProcessor } from './recipe-generation.processor';
@@ -111,7 +111,7 @@ describe('RecipeGenerationProcessor', () => {
   it('skips processing when the worker does not exist', async () => {
     prismaMock.recipeWorker.findUnique.mockResolvedValueOnce(null);
 
-    await getProcessor().handle(toBullJob(buildJob()));
+    await getProcessor().process(toBullJob(buildJob()));
 
     expect(prismaMock.recipeWorker.update).not.toHaveBeenCalled();
   });
@@ -123,7 +123,7 @@ describe('RecipeGenerationProcessor', () => {
       recipe: null,
     });
 
-    await getProcessor().handle(toBullJob(buildJob()));
+    await getProcessor().process(toBullJob(buildJob()));
 
     expect(prismaMock.recipeWorker.update).not.toHaveBeenCalled();
   });
@@ -164,7 +164,7 @@ describe('RecipeGenerationProcessor', () => {
       miscNutritionFacts: [{ label: 'Sodium', value: 100, unit: 'mg' }],
     });
 
-    await getProcessor().handle(toBullJob(buildJob()));
+    await getProcessor().process(toBullJob(buildJob()));
 
     expect(prismaMock.recipeWorker.update).toHaveBeenNthCalledWith(1, {
       where: { id: 'worker-1' },
@@ -199,7 +199,7 @@ describe('RecipeGenerationProcessor', () => {
       new BadRequestException('invalid prompt'),
     );
 
-    await getProcessor().handle(toBullJob(buildJob()));
+    await getProcessor().process(toBullJob(buildJob()));
 
     expect(prismaMock.recipeWorker.update).toHaveBeenNthCalledWith(1, {
       where: { id: 'worker-1' },
@@ -222,7 +222,7 @@ describe('RecipeGenerationProcessor', () => {
     const failure = new Error('queue failure');
     aiServiceMock.generateRecipeData.mockRejectedValueOnce(failure);
 
-    await expect(getProcessor().handle(toBullJob(buildJob()))).rejects.toThrow(
+    await expect(getProcessor().process(toBullJob(buildJob()))).rejects.toThrow(
       failure,
     );
 

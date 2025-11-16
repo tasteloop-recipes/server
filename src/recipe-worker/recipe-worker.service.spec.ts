@@ -5,8 +5,8 @@ import {
 import { RecipeStatus } from '@prisma/client';
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
-import { getQueueToken } from '@nestjs/bull';
-import type { Queue } from 'bull';
+import { getQueueToken } from '@nestjs/bullmq';
+import type { Queue } from 'bullmq';
 import { PrismaService } from '../prisma/prisma.service';
 import { RecipeWorkerService } from './recipe-worker.service';
 

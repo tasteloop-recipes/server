@@ -3,9 +3,9 @@ import {
   Injectable,
   InternalServerErrorException,
 } from '@nestjs/common';
-import { InjectQueue } from '@nestjs/bull';
+import { InjectQueue } from '@nestjs/bullmq';
 import { type RecipeWorker, RecipeStatus } from '@prisma/client';
-import type { Queue } from 'bull';
+import type { Queue } from 'bullmq';
 import { PrismaService } from '../prisma/prisma.service';
 
 const MAX_WORKERS_PAGE_SIZE = 100;
