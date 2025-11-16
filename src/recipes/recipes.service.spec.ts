@@ -12,6 +12,7 @@ describe('RecipesService', () => {
   let findManyMock: jest.Mock = jest.fn();
   let countMock: jest.Mock = jest.fn();
   let findUniqueMock: jest.Mock = jest.fn();
+  let findRecipeImageMock: jest.Mock = jest.fn();
 
   const getService = (): RecipesService => {
     if (!service) {
@@ -46,6 +47,7 @@ describe('RecipesService', () => {
     findManyMock = jest.fn();
     countMock = jest.fn();
     findUniqueMock = jest.fn();
+    findRecipeImageMock = jest.fn();
 
     moduleRef = await Test.createTestingModule({
       providers: [
@@ -58,6 +60,9 @@ describe('RecipesService', () => {
               findMany: findManyMock,
               count: countMock,
               findUnique: findUniqueMock,
+            },
+            recipeImage: {
+              findUnique: findRecipeImageMock,
             },
           },
         },
@@ -146,6 +151,21 @@ describe('RecipesService', () => {
       await expect(getService().findOne('123')).rejects.toThrow(
         'Recipe with id "123" not found',
       );
+    });
+  });
+
+  describe('findImage', () => {
+    it('should return image for recipe id', async () => {
+      const recipeId = 'recipe-1';
+      const image = { id: 'img-1' };
+      findRecipeImageMock.mockResolvedValueOnce(image);
+
+      const result = await getService().findImage(recipeId);
+
+      expect(result).toEqual(image);
+      expect(findRecipeImageMock).toHaveBeenCalledWith({
+        where: { recipeId },
+      });
     });
   });
 });

@@ -12,6 +12,7 @@ import {
   ProteinType,
   RecipeDifficulty,
 } from '@prisma/client';
+import { RecipeImageModel } from './recipe-image.model';
 
 registerEnumType(RecipeDifficulty, { name: 'RecipeDifficulty' });
 registerEnumType(MealType, { name: 'MealType' });
@@ -65,6 +66,9 @@ export class RecipeModel {
 
   @Field()
   servingSize!: string;
+
+  @Field(() => RecipeImageModel, { nullable: true })
+  image?: RecipeImageModel | null;
 
   @Field(() => GraphQLISODateTime)
   createdAt!: Date;

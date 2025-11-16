@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { Recipe } from '@prisma/client';
+import { Recipe, RecipeImage } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { RecipesPage } from './models/recipes-page.model';
 
@@ -45,5 +45,11 @@ export class RecipesService {
     }
 
     return recipe;
+  }
+
+  async findImage(recipeId: string): Promise<RecipeImage | null> {
+    return this.prisma.recipeImage.findUnique({
+      where: { recipeId },
+    });
   }
 }

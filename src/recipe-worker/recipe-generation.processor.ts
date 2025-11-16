@@ -3,10 +3,12 @@ import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { Allergy, RecipeStatus, type Prisma } from '@prisma/client';
 import type { Job } from 'bullmq';
 import { AiService } from '../ai/ai.service';
+import { recipeResponseFormat } from '../ai/ai.types';
 import { PrismaService } from '../prisma/prisma.service';
 
 interface RecipeGenerationJobData {
   workerId: string;
+  timeoutMs?: number;
 }
 
 const ALLOWED_STATUSES = new Set<RecipeStatus>([
@@ -32,7 +34,7 @@ export class RecipeGenerationProcessor extends WorkerHost {
   }
 
   async process(job: Job<RecipeGenerationJobData>): Promise<void> {
-    const { workerId } = job.data;
+    const { workerId, timeoutMs = 300000 } = job.data; // 5 minutes default
 
     const worker = await this.prisma.recipeWorker.findUnique({
       where: { id: workerId },
@@ -69,7 +71,15 @@ export class RecipeGenerationProcessor extends WorkerHost {
     }
 
     try {
-      const recipeData = await this.aiService.generateRecipeData(worker.prompt);
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => {
+          reject(new Error('Recipe generation timed out after 5 minutes'));
+        }, timeoutMs),
+      );
+
+      const recipeData = await Promise.race<
+        typeof recipeResponseFormat.__output
+      >([this.aiService.generateRecipeData(worker.prompt), timeoutPromise]);
 
       await this.prisma.$transaction(async (tx) => {
         if (worker.recipe) {
