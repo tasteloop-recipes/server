@@ -5,6 +5,7 @@ import type { Job } from 'bullmq';
 import { AiService } from '../ai/ai.service';
 import type { RecipeData } from '../ai/ai.types';
 import { PrismaService } from '../prisma/prisma.service';
+import { createTimeoutGuard } from '../common/timeout.util';
 
 interface RecipeImageGenerationJobData {
   workerId: string;
@@ -89,20 +90,17 @@ export class RecipeImageGenerationProcessor extends WorkerHost {
       return;
     }
 
-    try {
-      const timeoutPromise = new Promise<never>((_, reject) =>
-        setTimeout(() => {
-          reject(
-            new Error('Recipe image generation timed out after 5 minutes'),
-          );
-        }, timeoutMs),
-      );
+    const timeoutGuard = createTimeoutGuard(
+      timeoutMs,
+      () => new Error('Recipe image generation timed out after 5 minutes'),
+    );
 
+    try {
       const recipeData = this.buildRecipeData(worker.recipe, worker.prompt);
 
       await Promise.race([
         this.aiService.generateRecipeImage(worker.recipe.id, recipeData),
-        timeoutPromise,
+        timeoutGuard.promise,
       ]);
 
       await this.prisma.recipeWorker.update({
@@ -122,6 +120,8 @@ export class RecipeImageGenerationProcessor extends WorkerHost {
       );
 
       throw error;
+    } finally {
+      timeoutGuard.cancel();
     }
   }
 

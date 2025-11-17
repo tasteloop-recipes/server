@@ -23,7 +23,7 @@ describe('RecipeGenerationProcessor', () => {
 
   type TransactionCallback = (tx: {
     recipe: {
-      deleteMany: jest.Mock;
+      delete: jest.Mock;
       create?: jest.Mock;
     };
     recipeWorker: {
@@ -194,7 +194,7 @@ describe('RecipeGenerationProcessor', () => {
         async (callback: TransactionCallback) => {
           await callback({
             recipe: {
-              deleteMany: jest.fn(),
+              delete: jest.fn(),
               create: jest.fn(),
             },
             recipeWorker: {
@@ -233,7 +233,7 @@ describe('RecipeGenerationProcessor', () => {
         async (callback: TransactionCallback) => {
           await callback({
             recipe: {
-              deleteMany: jest.fn(),
+              delete: jest.fn(),
               create: jest.fn(),
             },
             recipeWorker: {
@@ -304,7 +304,7 @@ describe('RecipeGenerationProcessor', () => {
         async (callback: TransactionCallback) => {
           await callback({
             recipe: {
-              deleteMany: jest.fn(),
+              delete: jest.fn(),
               create: jest.fn(),
             },
             recipeWorker: {
@@ -392,7 +392,7 @@ describe('RecipeGenerationProcessor', () => {
         async (callback: TransactionCallback) => {
           await callback({
             recipe: {
-              deleteMany: jest.fn(),
+              delete: jest.fn(),
               create: jest.fn(),
             },
             recipeWorker: {
@@ -429,7 +429,7 @@ describe('RecipeGenerationProcessor', () => {
         async (callback: TransactionCallback) => {
           await callback({
             recipe: {
-              deleteMany: deleteRecipeMock,
+              delete: deleteRecipeMock,
               create: createRecipeMock,
             },
             recipeWorker: {
@@ -451,6 +451,38 @@ describe('RecipeGenerationProcessor', () => {
         where: { id: 'recipe-1' },
       });
       expect(createRecipeMock).toHaveBeenCalled();
+    });
+
+    it('should not attempt to delete when worker has no recipe', async () => {
+      findUniqueMock.mockResolvedValueOnce(mockWorker);
+      updateManyMock.mockResolvedValueOnce({ count: 1 });
+      generateRecipeDataMock.mockResolvedValueOnce(mockRecipeData);
+
+      const deleteRecipeMock = jest.fn();
+      transactionMock.mockImplementation(
+        async (callback: TransactionCallback) => {
+          await callback({
+            recipe: {
+              delete: deleteRecipeMock,
+              create: jest.fn(),
+            },
+            recipeWorker: {
+              update: jest.fn(),
+            },
+          });
+        },
+      );
+
+      updateMock.mockResolvedValueOnce({
+        id: mockWorker.id,
+        status: RecipeStatus.RECIPE_CREATED,
+      });
+
+      const job = createJob({ workerId: mockWorker.id });
+
+      await getProcessor().process(job);
+
+      expect(deleteRecipeMock).not.toHaveBeenCalled();
     });
   });
 });

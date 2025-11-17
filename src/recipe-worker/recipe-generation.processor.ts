@@ -6,6 +6,7 @@ import type { Job } from 'bullmq';
 import type { Queue } from 'bullmq';
 import { AiService } from '../ai/ai.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { createTimeoutGuard } from '../common/timeout.util';
 
 export interface RecipeGenerationJobData {
   workerId: string;
@@ -76,25 +77,25 @@ export class RecipeGenerationProcessor extends WorkerHost {
       return;
     }
 
-    try {
-      // Refactored: Clear timer if AI completes before timeout
-      const timeoutPromise = new Promise<never>((_, reject) =>
-        setTimeout(() => {
-          reject(
-            new Error(
-              `Recipe generation timed out after ${timeoutMs / 60000} minutes`,
-            ),
-          );
-        }, timeoutMs),
-      );
+    const timeoutGuard = createTimeoutGuard(
+      timeoutMs,
+      () =>
+        new Error(
+          `Recipe generation timed out after ${timeoutMs / 60000} minutes`,
+        ),
+    );
 
+    try {
       const recipeData = await Promise.race([
         this.aiService.generateRecipeData(worker.prompt),
-        timeoutPromise,
+        timeoutGuard.promise,
       ]);
 
       await this.prisma.$transaction(async (tx) => {
-        await tx.recipe.deleteMany({ where: { id: worker.recipe?.id } });
+        const existingRecipeId = worker.recipe?.id;
+        if (existingRecipeId != null) {
+          await tx.recipe.delete({ where: { id: existingRecipeId } });
+        }
 
         const { nutritionFacts } = recipeData;
         const miscFacts = recipeData.miscNutritionFacts;
@@ -171,6 +172,8 @@ export class RecipeGenerationProcessor extends WorkerHost {
       );
 
       throw error;
+    } finally {
+      timeoutGuard.cancel();
     }
   }
 
