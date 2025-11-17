@@ -83,7 +83,7 @@ export const recipeDataSchema = z
     countriesOfOrigin: z
       .array(z.string().min(1, 'Country name cannot be empty'))
       .min(1, 'There must be at least one country of origin'),
-    diets: z.array(dietEnum),
+    diets: z.array(dietEnum).min(1, 'There must be at least one diet type'),
     allergies: z.array(z.string().min(1, 'Allergy name cannot be empty')),
     proteinType: z.array(proteinTypeEnum).min(1, 'There must be at least one protein type'),
     prepTimeMinutes: z.number().int().nonnegative(),
