@@ -86,7 +86,7 @@ export const recipeDataSchema = z
     proteinType: z.array(proteinTypeEnum),
     prepTimeMinutes: z.number().int().nonnegative(),
     cookTimeMinutes: z.number().int().nonnegative(),
-    preparation: z.array(z.string()),
+    preparation: z.array(z.string().min(1, 'Preparation step cannot be empty')).min(1),
     instructions: z.array(z.string()),
     servingSize: z.string().min(1, 'Serving size cannot be empty'),
     ingredients: z.array(ingredientSchema).min(1),
