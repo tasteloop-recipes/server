@@ -68,7 +68,7 @@ export class RecipeWorkerService {
 
     return this.prisma.recipeWorker.findMany({
       where:
-        statuses && statuses.length > 0
+        statuses?.length > 0
           ? { status: { in: statuses } }
           : undefined,
       take: sanitizedLimit,
