@@ -4,16 +4,28 @@ import {
   Injectable,
   InternalServerErrorException,
 } from '@nestjs/common';
+import {
+  ObjectCannedACL,
+  PutObjectCommand,
+  S3Client,
+} from '@aws-sdk/client-s3';
+import { RecipeImage } from '@prisma/client';
 import OpenAI from 'openai';
 import {
   RecipeData,
   recipeResponseFormat,
   recipeValidFormat,
 } from './ai.types';
+import { PrismaService } from '../prisma/prisma.service';
+import { randomUUID } from 'node:crypto';
 
 @Injectable()
 export class AiService {
-  constructor(@Inject(OpenAI) private readonly openai: OpenAI | undefined) {}
+  constructor(
+    @Inject(OpenAI) private readonly openai: OpenAI | undefined,
+    private readonly prisma: PrismaService,
+    @Inject(S3Client) private readonly objectStorage: S3Client,
+  ) {}
 
   async generateRecipeData(
     prompt: string,
@@ -86,11 +98,23 @@ export class AiService {
     }
   }
 
-  // @todo: OpenAI generated images are temporary, will need to be stored in a proper object storage later
-  async generateRecipeImage(recipe: RecipeData): Promise<string> {
+  async generateRecipeImage(
+    recipeId: string,
+    recipe: RecipeData,
+  ): Promise<RecipeImage> {
     if (this.openai == null) {
       throw new InternalServerErrorException(
         'OpenAI client is not initialized. Please check your configuration.',
+      );
+    }
+
+    const bucket = process.env.SPACES_BUCKET;
+    const region = process.env.SPACES_REGION;
+    const acl = this.resolveObjectAcl(process.env.SPACES_OBJECT_ACL);
+
+    if (bucket == null || region == null) {
+      throw new InternalServerErrorException(
+        'Object storage is not configured correctly. Please set SPACES_BUCKET and SPACES_REGION environment variables.',
       );
     }
 
@@ -101,20 +125,76 @@ export class AiService {
         model: 'gpt-image-1',
         size: '1024x1024',
         prompt,
+        response_format: 'b64_json',
       });
 
-      const imageUrl = imageResponse.data?.[0]?.url;
+      const b64Image = imageResponse.data?.[0]?.b64_json;
 
-      if (typeof imageUrl !== 'string') {
+      if (typeof b64Image !== 'string') {
         throw new InternalServerErrorException(
-          'OpenAI did not return an image URL.',
+          'OpenAI did not return image data.',
         );
       }
 
-      return imageUrl;
+      const imageBuffer = Buffer.from(b64Image, 'base64');
+      const fileName = this.buildImageFileName(recipe.name);
+      const objectKey = `recipes/${recipeId}/${fileName}`;
+      const contentType = 'image/png';
+
+      await this.objectStorage.send(
+        new PutObjectCommand({
+          Bucket: bucket,
+          Key: objectKey,
+          Body: imageBuffer,
+          ContentType: contentType,
+          ACL: acl,
+        }),
+      );
+
+      return await this.prisma.recipeImage.upsert({
+        where: {
+          recipeId,
+        },
+        create: {
+          recipe: {
+            connect: {
+              id: recipeId,
+            },
+          },
+          spaceName: bucket,
+          region,
+          objectKey,
+          fileName,
+          contentType,
+        },
+        update: {
+          recipe: {
+            connect: {
+              id: recipeId,
+            },
+          },
+          spaceName: bucket,
+          region,
+          objectKey,
+          fileName,
+          contentType,
+        },
+      });
     } catch (error: unknown) {
       throw new InternalServerErrorException(error);
     }
+  }
+
+  private resolveObjectAcl(value: string | undefined): ObjectCannedACL {
+    if (value == null) {
+      return ObjectCannedACL.public_read;
+    }
+
+    return (
+      Object.values(ObjectCannedACL).find(
+        (allowedAcl) => allowedAcl === value,
+      ) ?? ObjectCannedACL.public_read
+    );
   }
 
   private buildImagePrompt(recipe: RecipeData): string {
@@ -128,5 +208,14 @@ export class AiService {
       `Key ingredients: ${ingredientList}.`,
       'Style: natural light, shallow depth of field, vibrant colors, soft shadows, no text, no labels, no people, professional food styling.',
     ].join('\n');
+  }
+
+  private buildImageFileName(recipeName: string): string {
+    const normalizedName = recipeName
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)+/g, '');
+
+    return `${normalizedName || 'recipe'}-${randomUUID()}.png`;
   }
 }

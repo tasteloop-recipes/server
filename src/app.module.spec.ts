@@ -1,5 +1,6 @@
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
+import { S3Client } from '@aws-sdk/client-s3';
 import { AppModule } from './app.module';
 import { AppService } from './app.service';
 import { AppResolver } from './app.resolver';
@@ -10,7 +11,10 @@ describe('AppModule', () => {
   beforeEach(async () => {
     module = await Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    })
+      .overrideProvider(S3Client)
+      .useValue({})
+      .compile();
   });
 
   describe('module initialization', () => {
