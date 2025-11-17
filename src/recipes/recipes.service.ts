@@ -3,12 +3,15 @@ import { Recipe, RecipeImage, MiscNutritionFact } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { RecipesPage } from './models/recipes-page.model';
 
+
+const MAX_PAGE_SIZE = 50;
+
 @Injectable()
 export class RecipesService {
   constructor(private readonly prisma: PrismaService) {}
 
   async findAll(page: number, limit: number): Promise<RecipesPage> {
-    const calculatedLimit = Math.min(Math.max(limit, 1), 50);
+    const calculatedLimit = Math.min(Math.max(limit, 1), MAX_PAGE_SIZE);
     const calculatedPage = Math.max(page, 1);
 
     const skip = (calculatedPage - 1) * calculatedLimit;
