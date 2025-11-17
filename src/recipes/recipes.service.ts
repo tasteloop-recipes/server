@@ -88,6 +88,10 @@ export class RecipesService {
   }
 
   async findImage(recipeId: string): Promise<RecipeImage | null> {
+    const recipe = await this.prisma.recipe.findUnique({ where: { id: recipeId } });
+    if (!recipe) {
+      throw new NotFoundException(`Recipe with id "${recipeId}" not found`);
+    }
     return this.prisma.recipeImage.findUnique({
       where: { recipeId },
     });
