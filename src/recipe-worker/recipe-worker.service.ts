@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Injectable,
   InternalServerErrorException,
+  NotFoundException,
 } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { type RecipeWorker, RecipeStatus } from '@prisma/client';
@@ -74,5 +75,17 @@ export class RecipeWorkerService {
       take: sanitizedLimit,
       orderBy: { createdAt: 'desc' },
     });
+  }
+
+  async findOne(id: string): Promise<RecipeWorker> {
+    const worker = await this.prisma.recipeWorker.findUnique({
+      where: { id },
+    });
+
+    if (!worker) {
+      throw new NotFoundException(`Recipe worker with id "${id}" not found`);
+    }
+
+    return worker;
   }
 }
