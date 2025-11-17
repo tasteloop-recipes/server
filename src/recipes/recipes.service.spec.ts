@@ -14,6 +14,7 @@ describe('RecipesService', () => {
   let countMock: jest.Mock = jest.fn();
   let findUniqueMock: jest.Mock = jest.fn();
   let findRecipeImageMock: jest.Mock = jest.fn();
+  let findUniqueWorkerMock: jest.Mock = jest.fn();
   let findMiscNutritionFactMock: jest.Mock = jest.fn();
   let findRecipeIngredientMock: jest.Mock = jest.fn();
 
@@ -51,6 +52,7 @@ describe('RecipesService', () => {
     countMock = jest.fn();
     findUniqueMock = jest.fn();
     findRecipeImageMock = jest.fn();
+    findUniqueWorkerMock = jest.fn();
     findMiscNutritionFactMock = jest.fn();
     findRecipeIngredientMock = jest.fn();
 
@@ -68,6 +70,9 @@ describe('RecipesService', () => {
             },
             recipeImage: {
               findUnique: findRecipeImageMock,
+            },
+            recipeWorker: {
+              findUnique: findUniqueWorkerMock,
             },
             miscNutritionFact: {
               findMany: findMiscNutritionFactMock,
@@ -110,26 +115,28 @@ describe('RecipesService', () => {
     });
 
     it('should calculate totalPages correctly', async () => {
-      const mockRecipes = Array(50)
+      const MOCK_RECIPE_PAGE_SIZE = 50;
+      const mockRecipes = Array(MOCK_RECIPE_PAGE_SIZE)
         .fill(null)
         .map((_, i) => ({ ...mockRecipe, id: String(i) }));
       transactionMock.mockResolvedValueOnce([mockRecipes, 150]);
 
-      const result = await getService().findAll(1, 50);
+      const result = await getService().findAll(1, MOCK_RECIPE_PAGE_SIZE);
 
       expect(result.meta.totalPages).toBe(3);
     });
 
+    const TOTAL_RECIPES_COUNT = 20;
     it('should calculate skip correctly for pagination', async () => {
       const mockRecipes = [mockRecipe];
-      transactionMock.mockResolvedValueOnce([mockRecipes, 20]);
+      transactionMock.mockResolvedValueOnce([mockRecipes, TOTAL_RECIPES_COUNT]);
       findManyMock.mockResolvedValueOnce(mockRecipes);
 
       await getService().findAll(3, 10);
 
       expect(findManyMock).toHaveBeenCalledWith(
         expect.objectContaining({
-          skip: 20,
+          skip: (3 - 1) * 10,
           take: 10,
         }),
       );
@@ -169,6 +176,7 @@ describe('RecipesService', () => {
     it('should return image for recipe id', async () => {
       const recipeId = 'recipe-1';
       const image = { id: 'img-1' };
+      findUniqueMock.mockResolvedValueOnce(mockRecipe);
       findRecipeImageMock.mockResolvedValueOnce(image);
 
       const result = await getService().findImage(recipeId);
@@ -222,6 +230,78 @@ describe('RecipesService', () => {
     });
   });
 
+  describe('findWorker', () => {
+    it('should return worker for recipe id', async () => {
+      const recipeId = 'recipe-1';
+      const workerId = 'worker-1';
+      const mockWorker = { id: workerId, name: 'Test Worker' };
+
+      findUniqueMock.mockResolvedValueOnce({ workerId });
+      findUniqueWorkerMock.mockResolvedValueOnce(mockWorker);
+
+      const result = await getService().findWorker(recipeId);
+
+      expect(result).toEqual(mockWorker);
+      expect(findUniqueMock).toHaveBeenCalledWith({
+        where: { id: recipeId },
+        select: { workerId: true },
+      });
+      expect(findUniqueWorkerMock).toHaveBeenCalledWith({
+        where: { id: workerId },
+      });
+    });
+
+    it('should throw NotFoundException when recipe does not exist', async () => {
+      const recipeId = 'nonexistent-recipe';
+      findUniqueMock.mockResolvedValueOnce(null);
+
+      await expect(getService().findWorker(recipeId)).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(findUniqueMock).toHaveBeenCalledWith({
+        where: { id: recipeId },
+        select: { workerId: true },
+      });
+      expect(findUniqueWorkerMock).not.toHaveBeenCalled();
+    });
+
+    it('should throw NotFoundException with correct message when recipe not found', async () => {
+      const recipeId = 'recipe-123';
+      findUniqueMock.mockResolvedValueOnce(null);
+
+      await expect(getService().findWorker(recipeId)).rejects.toThrow(
+        `Recipe with id "${recipeId}" not found`,
+      );
+    });
+
+    it('should throw NotFoundException when worker does not exist', async () => {
+      const recipeId = 'recipe-1';
+      const workerId = 'worker-1';
+
+      findUniqueMock.mockResolvedValueOnce({ workerId });
+      findUniqueWorkerMock.mockResolvedValueOnce(null);
+
+      await expect(getService().findWorker(recipeId)).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(findUniqueWorkerMock).toHaveBeenCalledWith({
+        where: { id: workerId },
+      });
+    });
+
+    it('should throw NotFoundException with correct message when worker not found', async () => {
+      const recipeId = 'recipe-1';
+      const workerId = 'worker-123';
+
+      findUniqueMock.mockResolvedValueOnce({ workerId });
+      findUniqueWorkerMock.mockResolvedValueOnce(null);
+
+      await expect(getService().findWorker(recipeId)).rejects.toThrow(
+        `RecipeWorker with id "${workerId}" not found`,
+      );
+    });
+  });
+
   describe('findMiscNutritionFacts', () => {
     it('should return nutrition facts for recipe id', async () => {
       const recipeId = 'recipe-1';
@@ -241,6 +321,7 @@ describe('RecipesService', () => {
           unit: 'g',
         },
       ];
+      findUniqueMock.mockResolvedValueOnce(mockRecipe);
       findMiscNutritionFactMock.mockResolvedValueOnce(nutritionFacts);
 
       const result = await getService().findMiscNutritionFacts(recipeId);
@@ -253,6 +334,7 @@ describe('RecipesService', () => {
 
     it('should return empty array when no nutrition facts exist', async () => {
       const recipeId = 'recipe-1';
+      findUniqueMock.mockResolvedValueOnce(mockRecipe);
       findMiscNutritionFactMock.mockResolvedValueOnce([]);
 
       const result = await getService().findMiscNutritionFacts(recipeId);

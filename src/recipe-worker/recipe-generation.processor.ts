@@ -5,7 +5,6 @@ import { Allergy, RecipeStatus, type Prisma } from '@prisma/client';
 import type { Job } from 'bullmq';
 import type { Queue } from 'bullmq';
 import { AiService } from '../ai/ai.service';
-import { recipeResponseFormat } from '../ai/ai.types';
 import { PrismaService } from '../prisma/prisma.service';
 
 export interface RecipeGenerationJobData {
@@ -79,33 +78,23 @@ export class RecipeGenerationProcessor extends WorkerHost {
 
     try {
       // Refactored: Clear timer if AI completes before timeout
-      const recipeData = await new Promise<
-        typeof recipeResponseFormat.__output
-      >((resolve, reject) => {
-        const timeoutId = setTimeout(() => {
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => {
           reject(
             new Error(
               `Recipe generation timed out after ${timeoutMs / 60000} minutes`,
             ),
           );
-        }, timeoutMs);
+        }, timeoutMs),
+      );
 
-        this.aiService
-          .generateRecipeData(worker.prompt)
-          .then((result) => {
-            clearTimeout(timeoutId);
-            resolve(result);
-          })
-          .catch((err: unknown) => {
-            clearTimeout(timeoutId);
-            reject(err instanceof Error ? err : new Error(String(err)));
-          });
-      });
+      const recipeData = await Promise.race([
+        this.aiService.generateRecipeData(worker.prompt),
+        timeoutPromise,
+      ]);
 
       await this.prisma.$transaction(async (tx) => {
-        if (worker.recipe) {
-          await tx.recipe.delete({ where: { id: worker.recipe.id } });
-        }
+        await tx.recipe.deleteMany({ where: { id: worker.recipe?.id } });
 
         const { nutritionFacts } = recipeData;
         const miscFacts = recipeData.miscNutritionFacts;
@@ -189,7 +178,7 @@ export class RecipeGenerationProcessor extends WorkerHost {
     const normalized = new Set<Allergy>();
 
     for (const value of values) {
-      const formatted = value.trim().toUpperCase().replace(/\s+/g, '_');
+      const formatted = this.normalizeAllergyValue(value);
       const match = allergyLookup.get(formatted);
 
       if (match) {
@@ -198,6 +187,13 @@ export class RecipeGenerationProcessor extends WorkerHost {
     }
 
     return [...normalized];
+  }
+
+  /**
+   * Normalizes an allergy string to a consistent format (trim, uppercase, underscores for whitespace).
+   */
+  private normalizeAllergyValue(value: string): string {
+    return value.trim().toUpperCase().replace(/\s+/g, '_');
   }
 
   private async enqueueImageGenerationJob(workerId: string): Promise<void> {
