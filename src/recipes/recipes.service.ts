@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { Recipe, RecipeImage, RecipeWorker } from '@prisma/client';
+import { Recipe, RecipeImage, RecipeWorker, MiscNutritionFact } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { RecipesPage } from './models/recipes-page.model';
 
@@ -68,6 +68,12 @@ export class RecipesService {
     }
 
     return worker;
+  }
+
+  async findMiscNutritionFacts(recipeId: string): Promise<MiscNutritionFact[]> {
+    return this.prisma.miscNutritionFact.findMany({
+      where: { recipeId },
+    });
   }
 
   async findImage(recipeId: string): Promise<RecipeImage | null> {
