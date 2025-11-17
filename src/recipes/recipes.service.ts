@@ -3,7 +3,6 @@ import { Recipe, RecipeImage, MiscNutritionFact } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { RecipesPage } from './models/recipes-page.model';
 
-
 const MAX_PAGE_SIZE = 50;
 
 @Injectable()
