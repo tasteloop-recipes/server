@@ -171,6 +171,7 @@ describe('RecipesService', () => {
     it('should return image for recipe id', async () => {
       const recipeId = 'recipe-1';
       const image = { id: 'img-1' };
+      findUniqueMock.mockResolvedValueOnce(mockRecipe);
       findRecipeImageMock.mockResolvedValueOnce(image);
 
       const result = await getService().findImage(recipeId);
@@ -273,6 +274,7 @@ describe('RecipesService', () => {
           unit: 'g',
         },
       ];
+      findUniqueMock.mockResolvedValueOnce(mockRecipe);
       findMiscNutritionFactMock.mockResolvedValueOnce(nutritionFacts);
 
       const result = await getService().findMiscNutritionFacts(recipeId);
@@ -285,6 +287,7 @@ describe('RecipesService', () => {
 
     it('should return empty array when no nutrition facts exist', async () => {
       const recipeId = 'recipe-1';
+      findUniqueMock.mockResolvedValueOnce(mockRecipe);
       findMiscNutritionFactMock.mockResolvedValueOnce([]);
 
       const result = await getService().findMiscNutritionFacts(recipeId);
