@@ -1,6 +1,6 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Injectable, Logger } from '@nestjs/common';
-import { RecipeStatus, type Recipe } from '@prisma/client';
+import { RecipeStatus, type Prisma } from '@prisma/client';
 import type { Job } from 'bullmq';
 import { AiService } from '../ai/ai.service';
 import type { RecipeData } from '../ai/ai.types';
@@ -10,6 +10,14 @@ interface RecipeImageGenerationJobData {
   workerId: string;
   timeoutMs?: number;
 }
+
+type RecipeWithRelations = Prisma.RecipeGetPayload<{
+  include: {
+    ingredients: true;
+    nutritionFacts: true;
+    miscNutritionFacts: true;
+  };
+}>;
 
 const ALLOWED_STATUSES = new Set<RecipeStatus>([
   RecipeStatus.ERROR,
@@ -118,7 +126,7 @@ export class RecipeImageGenerationProcessor extends WorkerHost {
   }
 
   private buildRecipeData(
-    recipe: Recipe,
+    recipe: RecipeWithRelations,
     prompt: string,
   ): RecipeData {
     const nutritionFacts = recipe.nutritionFacts.at(0);
@@ -156,7 +164,7 @@ export class RecipeImageGenerationProcessor extends WorkerHost {
       miscNutritionFacts: recipe.miscNutritionFacts.map((fact) => ({
         label: fact.label,
         value: Number(fact.value),
-        unit: fact.unit ?? undefined,
+        unit: fact.unit ?? null,
       })),
     };
   }
