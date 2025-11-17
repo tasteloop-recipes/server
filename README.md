@@ -1,117 +1,167 @@
 # TasteLoop Server
 
-TasteLoop Server is a NestJS GraphQL API that generates recipes with AI and stores them using Prisma. The application now includes a background queue that processes `RecipeWorker` jobs and turns prompts into fully hydrated recipe records.
+TasteLoop Server is a NestJS GraphQL platform that turns user prompts into fully populated recipes by combining BullMQ queues, Prisma/PostgreSQL, OpenAI text + image generation, and an S3-compatible object store. The HTTP API and background workers are deployed independently so API traffic and AI workloads can scale on their own.
 
-## Prerequisites
+## Architecture
+
+```mermaid
+flowchart LR
+  Client[[GraphQL client]] -->|Mutations/Queries| API[NestJS GraphQL API]
+  subgraph API Layer
+    Resolver[Recipe & RecipeWorker Resolvers]
+    Service[RecipesService / RecipeWorkerService]
+    Ai[AiService]
+  end
+  API -->|Prisma| Postgres[(PostgreSQL)]
+  Service -->|enqueue| BullMQ[(Redis / Valkey)]
+  BullMQ --> GenProc[RecipeGenerationProcessor]
+  GenProc -->|generateRecipeData| Ai
+  Ai --> OpenAI[(OpenAI APIs)]
+  GenProc -->|persist recipes| Postgres
+  GenProc -->|enqueue images| ImgQueue[(recipe-image-generation queue)]
+  ImgQueue --> ImgProc[RecipeImageGenerationProcessor]
+  ImgProc -->|generateRecipeImage| Ai
+  ImgProc --> S3[(S3-compatible storage)]
+  API -->|serve recipe/image metadata| Client
+```
+
+- `src/app.module.ts` wires the GraphQL runtime, Prisma client, throttling guard, BullMQ connection, and the feature modules (`RecipesModule`, `RecipeWorkerModule`, `AiModule`).
+- `AiService` (in `src/ai`) owns all OpenAI interactions: prompt moderation, structured recipe generation (`recipe-generation` format), and image uploads to object storage.
+- `RecipeWorkerModule` exposes the GraphQL mutations/queries for `RecipeWorker` entities and enqueues BullMQ jobs that run inside the dedicated `queue.worker.ts` process.
+- `RecipeGenerationProcessor` and `RecipeImageGenerationProcessor` (in `src/recipe-worker`) consume jobs, orchestrate AI calls, and persist normalized data through the Prisma service.
+- `RecipesModule` exposes read-only GraphQL queries for recipes, ingredients, nutrition facts, linked workers, and uploaded images.
+
+## Codebase tour
+
+| Path | Description |
+| --- | --- |
+| `src/main.ts` | Bootstraps the HTTP GraphQL server with Express + Apollo. |
+| `src/ai` | Zod schemas, OpenAI provider, and `AiService` methods that validate prompts, request recipes, and upload generated PNGs. |
+| `src/recipe-worker` | GraphQL resolver/service for `RecipeWorker` plus the BullMQ processors that turn jobs into recipes and images. |
+| `src/recipes` | Query resolvers, DTOs, and models that expose paginated recipe data along with related ingredients, images, and nutrition facts. |
+| `src/storage/object-storage.provider.ts` | Factory that configures an S3 client targeted at DigitalOcean Spaces or the bundled MinIO stack. |
+| `src/queue` | BullMQ module configuration and `queue.worker.ts`, which spins up an application context dedicated to processing background jobs. |
+| `prisma/` | Prisma schema that defines recipe, worker, and nutrition models plus generated client artifacts. |
+
+## Domain models & queue relationships
+
+```mermaid
+erDiagram
+  RecipeWorker ||--|| Recipe : "workerId (required)"
+  Recipe ||--|{ RecipeIngredient : "recipeId"
+  Recipe ||--|{ RecipeNutritionFact : "recipeId"
+  Recipe ||--|{ MiscNutritionFact : "recipeId"
+  Recipe ||--o| RecipeImage : "recipeId (optional)"
+```
+
+- `RecipeWorker` stores the original prompt plus the latest `RecipeStatus`. Workers begin in `CREATED`, move through `PROCESSING_RECIPE` → `RECIPE_CREATED` → `PROCESSING_IMAGE` → `READY`, and can fall back to `ERROR` or `INVALID`.
+- `Recipe` rows own sub-collections (ingredients, nutrition facts, misc facts) and hold a required `workerId` so the API can traverse back to the job that created the record.
+- `RecipeImage` persists object-storage metadata so clients can render generated images without touching S3 credentials.
+
+### Queue lifecycle
+
+1. `RecipeWorkerResolver.create` validates the prompt and creates a `RecipeWorker`.
+2. `RecipeWorkerService` enqueues a `recipe-generation` job handled by `RecipeGenerationProcessor`.
+3. `RecipeGenerationProcessor` calls `AiService.generateRecipeData`, upserts a full recipe tree, updates the worker’s status, and emits a follow-up `recipe-image-generation` job.
+4. `RecipeImageGenerationProcessor` loads the recipe + relations, builds the image prompt, calls `AiService.generateRecipeImage`, stores metadata in Prisma, and marks the worker `READY`.
+5. GraphQL queries in `RecipesResolver` expose the hydrated recipe, worker, and image metadata to clients.
+
+## Running the application
+
+### Prerequisites
 
 - Node.js 20+
 - npm 10+
 - PostgreSQL database
-- Redis-compatible queue (Valkey on DigitalOcean works out of the box)
+- Redis- or Valkey-compatible queue backend
+- OpenAI API key with access to `gpt-5` and `gpt-image-1`
 
-Copy `.env.example` to `.env` and update the following variables:
+Copy `.env.example` to `.env` and provide at least:
 
 - `DATABASE_URL`
 - `OPENAI_API_KEY`
-- `REDIS_HOST`, `REDIS_PORT`, `REDIS_USERNAME`, `REDIS_PASSWORD` (optional if your queue is unauthenticated)
+- `REDIS_HOST`, `REDIS_PORT`, `REDIS_USERNAME`, `REDIS_PASSWORD` (username/password optional for local queues)
 
-## Installation
+### Install dependencies & generate Prisma client
 
 ```bash
 npm ci
 npm run prisma:generate
 ```
 
-## Local development
-
-### Run the API server
+### Start the HTTP API
 
 ```bash
 npm run start:dev
 ```
 
-### Run the recipe queue worker
+- Runs the NestJS GraphQL server with file watching enabled.
+- Auto-generates the schema at `schema.gql`.
 
-The worker runs independently of the HTTP server so it can scale separately.
+### Start the queue worker
 
 ```bash
 npm run start:queue:dev
 ```
 
-Both commands watch for file changes and reload automatically.
+- Spins up `src/queue/queue.worker.ts`.
+- Processes `recipe-generation` and `recipe-image-generation` queues in the same Node process.
+- The worker intentionally runs separately from the HTTP server so you can scale replicas independently.
 
-## Docker workflow
+### Docker workflow
 
-The repository ships with a `docker-compose.yml` that provisions PostgreSQL, Valkey, MinIO object storage, the API server, and the queue worker.
+Use the bundled Compose stack to provision PostgreSQL, Valkey, MinIO object storage, the API server, and the worker:
 
 ```bash
 docker compose up --build
 ```
 
-- The `app` service hosts the GraphQL API at `http://localhost:3000`.
-- The `queue` service runs the background worker via `npm run start:queue:dev`.
-- The `valkey` service provides a Redis-compatible queue backend.
-- The `object-storage` service provides a local MinIO instance for S3-compatible storage.
+- `app` exposes the GraphQL API at `http://localhost:3000`.
+- `queue` runs the BullMQ worker (watch mode).
+- `valkey` provides Redis-compatible storage for BullMQ.
+- `object-storage` runs MinIO plus a bootstrap container that creates the configured bucket.
 
-The application container will install dependencies, generate the Prisma client, run pending migrations, and then start in watch mode. A healthy Postgres instance is required before the app starts.
-
-You can override `REDIS_*` variables in `.env` to point to a managed Valkey instance on DigitalOcean.
-
-## Object storage configuration
-
-The AI image pipeline saves generated images to an S3-compatible bucket. The service is configured to work with [DigitalOcean Spaces](https://docs.digitalocean.com/reference/api/#spaces) in production and ships with a local [MinIO](https://min.io/) stack for development.
-
-### Required environment variables
-
-Configure the following variables in your `.env` file (see `.env.example` for defaults):
-
-- `SPACES_ENDPOINT` – The S3 endpoint (e.g. `https://nyc3.digitaloceanspaces.com` in production or `http://localhost:9000` for the local stack).
-- `SPACES_REGION` – Region/cluster for your space (e.g. `nyc3`).
-- `SPACES_BUCKET` – The bucket/space name that will hold generated recipe images.
-- `SPACES_ACCESS_KEY_ID` and `SPACES_SECRET_ACCESS_KEY` – API credentials that can read/write the bucket.
-- `SPACES_FORCE_PATH_STYLE` – Use `false` for DigitalOcean Spaces and `true` when working with the bundled MinIO server.
-- `SPACES_OBJECT_ACL` – Optional ACL to apply when uploading objects (defaults to `public-read`).
-
-### Local development
-
-Running `docker compose up` launches an additional `object-storage` service (MinIO) plus a short-lived setup container that creates the configured bucket and marks it as publicly readable. The MinIO UI is available at [http://localhost:9001](http://localhost:9001) using the access and secret keys defined above.
-
-The application container automatically points to the in-cluster endpoint (`http://object-storage:9000`) and forces path-style URLs so you can test uploads locally without extra configuration.
-
-To work against DigitalOcean Spaces instead, update the environment variables with your production credentials, disable `SPACES_FORCE_PATH_STYLE`, and ensure the bucket exists with the desired permissions.
-
-## Database helpers
-
-```bash
-npm run prisma:migrate         # create a new migration (development)
-npm run prisma:migrate:prod    # apply committed migrations without prompts
-npm run prisma:format          # format schema.prisma
-npm run prisma:studio          # inspect the database visually
-```
-
-## Testing and linting
+### Test, lint, and type-check
 
 ```bash
 npm run lint && npm run format && npm run prisma:format
 npm run test
 npm run test:cov
 npm run test:e2e
+npm run tsc
 ```
 
-## Production build
+### Production build
 
 ```bash
-npm run build
-npm run start:prod           # starts the compiled HTTP server
-npm run start:queue          # starts the compiled queue worker
+npm run build          # emits dist/
+npm run start:prod     # HTTP server (dist/main.js)
+npm run start:queue    # worker (dist/queue/queue.worker.js)
 ```
 
-## Project structure highlights
+## Configuration
 
-- `src/ai` – AI service that talks to OpenAI.
-- `src/recipe-worker` – GraphQL resolver, service, and queue processor for `RecipeWorker` jobs.
-- `src/queue` – Queue configuration and worker bootstrap.
-- `prisma/` – Prisma schema and migrations.
+### Object storage
+
+The AI image pipeline uploads PNGs to an S3-compatible bucket. Configure the following environment variables (see `.env.example`):
+
+- `SPACES_ENDPOINT` – e.g. `https://nyc3.digitaloceanspaces.com` or `http://localhost:9000` for MinIO.
+- `SPACES_REGION`
+- `SPACES_BUCKET`
+- `SPACES_ACCESS_KEY_ID`, `SPACES_SECRET_ACCESS_KEY`
+- `SPACES_FORCE_PATH_STYLE` – set `true` for MinIO, `false` for DigitalOcean Spaces.
+- `SPACES_OBJECT_ACL` – optional; defaults to `public-read`.
+
+Running `docker compose up` provides a MinIO UI at [http://localhost:9001](http://localhost:9001) with the credentials defined in `.env`. The app container points to `http://object-storage:9000` and forces path-style URLs automatically.
+
+### Database helpers
+
+```bash
+npm run prisma:migrate         # create a new migration interactively
+npm run prisma:migrate:prod    # apply committed migrations without prompts
+npm run prisma:format          # format schema.prisma
+npm run prisma:studio          # open Prisma Studio
+```
 
 ## License
 
