@@ -97,7 +97,7 @@ export const recipeDataSchema = z
     servingSize: z.string().min(1, 'Serving size cannot be empty'),
     ingredients: z.array(ingredientSchema).min(1),
     nutritionFacts: nutritionFactSchema,
-    miscNutritionFacts: z.array(miscNutritionFactSchema),
+    miscNutritionFacts: z.array(miscNutritionFactSchema).min(1, 'There must be at least one miscellaneous nutrition fact'),
   })
   .strict()
   .describe('Formatted schema for generated recipe data');
