@@ -124,7 +124,7 @@ describe('RecipesService', () => {
 
       expect(findManyMock).toHaveBeenCalledWith(
         expect.objectContaining({
-          skip: 20,
+          skip: (3 - 1) * 10,
           take: 10,
         }),
       );
