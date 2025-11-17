@@ -1,5 +1,5 @@
 import { Args, Parent, Query, ResolveField, Resolver } from '@nestjs/graphql';
-import type { Recipe } from '@prisma/client';
+import type { Recipe, MiscNutritionFact } from '@prisma/client';
 import { RecipesPage } from './models/recipes-page.model';
 import { RecipeModel } from './models/recipe.model';
 import { RecipesService } from './recipes.service';
@@ -36,7 +36,7 @@ export class RecipesResolver {
   ): Promise<MiscNutritionFactModel[]> {
     const facts = await this.recipesService.findMiscNutritionFacts(recipe.id);
 
-    return facts.map<MiscNutritionFactModel>((fact) => ({
+    return facts.map<MiscNutritionFactModel>((fact: MiscNutritionFact) => ({
       ...fact,
       value: fact.value.toNumber(),
     }));
