@@ -36,7 +36,7 @@ export class RecipeWorkerResolver {
     })
     statuses?: RecipeStatus[],
   ): Promise<RecipeWorkerModel[]> {
-    return this.recipeWorkerService.findMany(limit ?? 50, statuses);
+    return this.recipeWorkerService.findManyWithFilters(limit ?? 50, statuses);
   }
 
   @Query(() => RecipeWorkerModel, {
