@@ -75,7 +75,7 @@ const proteinTypeEnum = z
 
 export const recipeDataSchema = z
   .object({
-    name: z.string().min(1),
+    name: z.string().min(1, 'Recipe name cannot be empty'),
     prompt: z.string().min(1),
     description: z.string().min(1, 'Recipe description cannot be empty'),
     difficulty: recipeDifficultyEnum,
