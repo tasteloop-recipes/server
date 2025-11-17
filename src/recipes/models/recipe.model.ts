@@ -69,7 +69,7 @@ export class RecipeModel {
   servingSize!: string;
 
   @Field(() => [MiscNutritionFactModel])
-  miscNutritionFacts!: MiscNutritionFactModel[];
+  miscNutritionFacts?: MiscNutritionFactModel[];
 
   @Field(() => RecipeImageModel, { nullable: true })
   image?: RecipeImageModel | null;

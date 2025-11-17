@@ -1,5 +1,4 @@
 import { Field, Int, ObjectType } from '@nestjs/graphql';
-import { Recipe } from '@prisma/client';
 import { RecipeModel } from './recipe.model';
 
 @ObjectType()
@@ -20,7 +19,7 @@ export class RecipesPageMeta {
 @ObjectType()
 export class RecipesPage {
   @Field(() => [RecipeModel])
-  data!: Recipe[];
+  data!: RecipeModel[];
 
   @Field(() => RecipesPageMeta)
   meta!: RecipesPageMeta;

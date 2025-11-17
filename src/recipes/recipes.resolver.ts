@@ -23,7 +23,7 @@ export class RecipesResolver {
   })
   async recipe(
     @Args('id', { type: () => String }) id: string,
-  ): Promise<Recipe> {
+  ): Promise<RecipeModel> {
     return this.recipesService.findOne(id);
   }
 
