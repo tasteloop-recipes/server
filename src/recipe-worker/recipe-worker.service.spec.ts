@@ -27,7 +27,7 @@ describe('RecipeWorkerService', () => {
   const mockWorker = {
     id: '1',
     prompt: 'Make me a pizza recipe',
-    status: RecipeStatus.PENDING,
+    status: RecipeStatus.CREATED,
     createdAt: new Date(),
     updatedAt: new Date(),
     imageUrl: null,
@@ -87,10 +87,10 @@ describe('RecipeWorkerService', () => {
         { workerId: '1' },
         expect.objectContaining({
           attempts: 3,
-          backoff: expect.objectContaining({
+          backoff: {
             type: 'exponential',
             delay: 1000,
-          }),
+          },
           removeOnComplete: true,
           removeOnFail: false,
         }),
@@ -101,9 +101,9 @@ describe('RecipeWorkerService', () => {
       await expect(getService().create('')).rejects.toThrow(
         BadRequestException,
       );
-      await expect(
-        getService().create('   '),
-      ).rejects.toThrow(BadRequestException);
+      await expect(getService().create('   ')).rejects.toThrow(
+        BadRequestException,
+      );
       expect(mockPrismaCreate).not.toHaveBeenCalled();
     });
 
@@ -133,9 +133,9 @@ describe('RecipeWorkerService', () => {
         status: RecipeStatus.ERROR,
       });
 
-      await expect(getService().create('Make me a pizza recipe')).rejects.toThrow(
-        InternalServerErrorException,
-      );
+      await expect(
+        getService().create('Make me a pizza recipe'),
+      ).rejects.toThrow(InternalServerErrorException);
 
       expect(mockPrismaUpdate).toHaveBeenCalledWith({
         where: { id: '1' },
@@ -156,10 +156,14 @@ describe('RecipeWorkerService', () => {
         await getService().create('Make me a pizza recipe');
       } catch (error) {
         if (error instanceof InternalServerErrorException) {
-          expect(error.getResponse()).toContain(
+          const response = error.getResponse();
+          const responseMessage =
+            typeof response === 'string' ? response : JSON.stringify(response);
+
+          expect(responseMessage).toContain(
             'Failed to enqueue recipe generation job',
           );
-          expect(error.getResponse()).toContain('Queue connection failed');
+          expect(responseMessage).toContain('Queue connection failed');
         }
       }
     });
@@ -172,9 +176,9 @@ describe('RecipeWorkerService', () => {
         status: RecipeStatus.ERROR,
       });
 
-      await expect(getService().create('Make me a pizza recipe')).rejects.toThrow(
-        InternalServerErrorException,
-      );
+      await expect(
+        getService().create('Make me a pizza recipe'),
+      ).rejects.toThrow(InternalServerErrorException);
     });
   });
 
@@ -234,19 +238,17 @@ describe('RecipeWorkerService', () => {
     });
 
     it('should filter by statuses when provided', async () => {
-      const mockWorkers = [
-        { ...mockWorker, status: RecipeStatus.COMPLETED },
-      ];
+      const mockWorkers = [{ ...mockWorker, status: RecipeStatus.READY }];
       mockPrismaFindMany.mockResolvedValueOnce(mockWorkers);
 
       const result = await getService().findManyWithFilters(50, [
-        RecipeStatus.COMPLETED,
+        RecipeStatus.READY,
       ]);
 
       expect(result).toEqual(mockWorkers);
       expect(mockPrismaFindMany).toHaveBeenCalledWith({
         where: {
-          status: { in: [RecipeStatus.COMPLETED] },
+          status: { in: [RecipeStatus.READY] },
         },
         take: 50,
         orderBy: { createdAt: 'desc' },
@@ -258,13 +260,15 @@ describe('RecipeWorkerService', () => {
       mockPrismaFindMany.mockResolvedValueOnce(mockWorkers);
 
       await getService().findManyWithFilters(50, [
-        RecipeStatus.PENDING,
-        RecipeStatus.PROCESSING,
+        RecipeStatus.CREATED,
+        RecipeStatus.PROCESSING_RECIPE,
       ]);
 
       expect(mockPrismaFindMany).toHaveBeenCalledWith({
         where: {
-          status: { in: [RecipeStatus.PENDING, RecipeStatus.PROCESSING] },
+          status: {
+            in: [RecipeStatus.CREATED, RecipeStatus.PROCESSING_RECIPE],
+          },
         },
         take: 50,
         orderBy: { createdAt: 'desc' },

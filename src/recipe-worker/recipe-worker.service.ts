@@ -55,10 +55,9 @@ export class RecipeWorkerService {
       if (error instanceof Error) {
         errorMessage += `: ${error.message}`;
       }
-      throw new InternalServerErrorException(
-        errorMessage,
-        { cause: error instanceof Error ? error : undefined },
-      );
+      throw new InternalServerErrorException(errorMessage, {
+        cause: error instanceof Error ? error : undefined,
+      });
     }
 
     return worker;
@@ -69,12 +68,13 @@ export class RecipeWorkerService {
     statuses?: RecipeStatus[],
   ): Promise<RecipeWorker[]> {
     const sanitizedLimit = Math.min(Math.max(limit, 1), MAX_WORKERS_PAGE_SIZE);
+    const statusFilter =
+      statuses !== undefined && statuses.length > 0
+        ? { status: { in: statuses } }
+        : undefined;
 
     return this.prisma.recipeWorker.findMany({
-      where:
-        statuses?.length > 0
-          ? { status: { in: statuses } }
-          : undefined,
+      where: statusFilter,
       take: sanitizedLimit,
       orderBy: { createdAt: 'desc' },
     });
