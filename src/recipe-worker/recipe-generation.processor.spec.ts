@@ -1,4 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
+import { getQueueToken } from '@nestjs/bullmq';
 import { RecipeStatus } from '@prisma/client';
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
@@ -120,6 +121,12 @@ describe('RecipeGenerationProcessor', () => {
           provide: AiService,
           useValue: {
             generateRecipeData: generateRecipeDataMock,
+          },
+        },
+        {
+          provide: getQueueToken('recipe-image-generation'),
+          useValue: {
+            add: jest.fn(),
           },
         },
       ],

@@ -5,6 +5,7 @@ import { RecipeModel } from './models/recipe.model';
 import { RecipesService } from './recipes.service';
 import { RecipesInput } from './dto/recipes.input';
 import { RecipeImageModel } from './models/recipe-image.model';
+import { RecipeIngredientModel } from './models/recipe-ingredient.model';
 import { RecipeWorkerModel } from '../recipe-worker/models/recipe-worker.model';
 import { MiscNutritionFactModel } from './models/misc-nutrition-fact.model';
 
@@ -26,6 +27,15 @@ export class RecipesResolver {
     @Args('id', { type: () => String }) id: string,
   ): Promise<RecipeModel> {
     return this.recipesService.findOne(id);
+  }
+
+  @ResolveField(() => [RecipeIngredientModel], {
+    description: 'Retrieve the ingredients associated with the recipe',
+  })
+  async ingredients(
+    @Parent() recipe: RecipeModel,
+  ): Promise<RecipeIngredientModel[]> {
+    return this.recipesService.findIngredients(recipe.id);
   }
 
   @ResolveField(() => RecipeWorkerModel, {
