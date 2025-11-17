@@ -13,6 +13,7 @@ import {
   RecipeDifficulty,
 } from '@prisma/client';
 import { RecipeImageModel } from './recipe-image.model';
+import { RecipeIngredientModel } from './recipe-ingredient.model';
 
 registerEnumType(RecipeDifficulty, { name: 'RecipeDifficulty' });
 registerEnumType(MealType, { name: 'MealType' });
@@ -66,6 +67,9 @@ export class RecipeModel {
 
   @Field()
   servingSize!: string;
+
+  @Field(() => [RecipeIngredientModel])
+  ingredients!: RecipeIngredientModel[];
 
   @Field(() => RecipeImageModel, { nullable: true })
   image?: RecipeImageModel | null;
