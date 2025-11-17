@@ -30,16 +30,20 @@ describe('RecipeGenerationProcessor', () => {
     };
   }) => Promise<void> | void;
 
+  const isJobLike = (value: unknown): value is Job<RecipeGenerationJobData> => {
+    return typeof value === 'object' && value !== null && 'data' in value;
+  };
+
   const createJob = (
     data: RecipeGenerationJobData,
   ): Job<RecipeGenerationJobData> => {
-    const minimalJob = { data } satisfies Pick<
-      Job<RecipeGenerationJobData>,
-      'data'
-    >;
-    const job = minimalJob as unknown;
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- Tests only need the data subset from BullMQ's Job
-    return job as Job<RecipeGenerationJobData>;
+    const job: unknown = { data };
+
+    if (!isJobLike(job)) {
+      throw new Error('Invalid job data');
+    }
+
+    return job;
   };
 
   const getProcessor = (): RecipeGenerationProcessor => {
@@ -420,6 +424,9 @@ describe('RecipeGenerationProcessor', () => {
             recipe: {
               delete: deleteRecipeMock,
               create: createRecipeMock,
+            },
+            recipeWorker: {
+              update: jest.fn(),
             },
           });
         },
