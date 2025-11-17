@@ -12,6 +12,7 @@ import {
   MiscNutritionFact,
   RecipeStatus,
   Prisma,
+  RecipeLogType,
 } from '@prisma/client';
 import type { Queue } from 'bullmq';
 import { PrismaService } from '../prisma/prisma.service';
@@ -20,6 +21,7 @@ import { AiService } from '../ai/ai.service';
 import type { RecipeData } from '../ai/ai.types';
 import { normalizeAllergies } from '../common/allergy.util';
 import { ModifyRecipeResultDto } from './dto/modify-recipe-result.dto';
+import { RecipeLogsService } from '../recipe-logs/recipe-logs.service';
 
 const MAX_PAGE_SIZE = 50;
 
@@ -30,6 +32,7 @@ export class RecipesService {
     private readonly aiService: AiService,
     @InjectQueue('recipe-image-generation')
     private readonly recipeImageQueue: Queue<{ workerId: string }>,
+    private readonly recipeLogsService: RecipeLogsService,
   ) {}
 
   async findAll(page: number, limit: number): Promise<RecipesPage> {
@@ -137,6 +140,13 @@ export class RecipesService {
       data: { status: RecipeStatus.PENDING_MODIFICATIONS },
     });
 
+    await this.recipeLogsService.createLog({
+      recipeId: recipe.id,
+      userId: recipe.authorId ?? undefined,
+      type: RecipeLogType.MODIFICATION_REQUESTED,
+      message: sanitizedPrompt,
+    });
+
     try {
       const aiPrompt = this.buildModificationPrompt(recipe, sanitizedPrompt);
       const generatedRecipe = await this.aiService.generateRecipeData(aiPrompt);
@@ -152,6 +162,13 @@ export class RecipesService {
       });
 
       await this.restartImageGenerationQueue(recipe.worker.id);
+
+      await this.recipeLogsService.createLog({
+        recipeId: recipe.id,
+        userId: recipe.authorId ?? undefined,
+        type: RecipeLogType.RECIPE_MODIFIED,
+        message: generatedRecipe.descriptionOfUpdates,
+      });
 
       const updatedRecipe = await this.findOne(recipe.id);
 

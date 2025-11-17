@@ -1,11 +1,12 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Injectable, Logger } from '@nestjs/common';
-import { RecipeStatus, type Prisma } from '@prisma/client';
+import { RecipeImage, RecipeLogType, RecipeStatus, type Prisma } from '@prisma/client';
 import type { Job } from 'bullmq';
 import { AiService } from '../ai/ai.service';
 import type { RecipeData } from '../ai/ai.types';
 import { PrismaService } from '../prisma/prisma.service';
 import { createTimeoutGuard } from '../common/timeout.util';
+import { RecipeLogsService } from '../recipe-logs/recipe-logs.service';
 
 interface RecipeImageGenerationJobData {
   workerId: string;
@@ -34,6 +35,7 @@ export class RecipeImageGenerationProcessor extends WorkerHost {
   constructor(
     private readonly prisma: PrismaService,
     private readonly aiService: AiService,
+    private readonly recipeLogsService: RecipeLogsService,
   ) {
     super();
   }
@@ -98,10 +100,17 @@ export class RecipeImageGenerationProcessor extends WorkerHost {
     try {
       const recipeData = this.buildRecipeData(worker.recipe, worker.prompt);
 
-      await Promise.race([
+      const generatedImage = await Promise.race([
         this.aiService.generateRecipeImage(worker.recipe.id, recipeData),
         timeoutGuard.promise,
       ]);
+
+      await this.recipeLogsService.createLog({
+        recipeId: worker.recipe.id,
+        userId: worker.recipe.authorId ?? undefined,
+        type: RecipeLogType.IMAGE_GENERATED,
+        message: this.buildImageUrl(generatedImage),
+      });
 
       await this.prisma.recipeWorker.update({
         where: { id: worker.id },
@@ -169,5 +178,10 @@ export class RecipeImageGenerationProcessor extends WorkerHost {
         unit: fact.unit ?? null,
       })),
     };
+  }
+
+  private buildImageUrl(image: RecipeImage): string {
+    const baseUrl = `https://${image.spaceName}.${image.region}.digitaloceanspaces.com`;
+    return `${baseUrl}/${image.objectKey}`;
   }
 }

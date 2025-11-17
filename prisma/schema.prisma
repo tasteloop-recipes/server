@@ -8,9 +8,10 @@ datasource db {
 }
 
 model User {
-  id      String   @id @default(uuid())
+  id      String      @id @default(uuid())
   name    String
   recipes Recipe[]
+  logs    RecipeLog[]
 }
 
 enum RecipeDifficulty {
@@ -75,6 +76,13 @@ enum RecipeStatus {
   INVALID
 }
 
+enum RecipeLogType {
+  RECIPE_CREATED
+  IMAGE_GENERATED
+  RECIPE_MODIFIED
+  MODIFICATION_REQUESTED
+}
+
 model Recipe {
   id                 String                @id @default(uuid())
   name               String
@@ -97,6 +105,7 @@ model Recipe {
   nutritionFacts     RecipeNutritionFact[]
   miscNutritionFacts MiscNutritionFact[]
   image              RecipeImage?
+  logs               RecipeLog[]
   // Worker is required; FK owned by Recipe so the relation can be required.
   workerId           String                @unique
   worker             RecipeWorker          @relation(fields: [workerId], references: [id], onDelete: Cascade)
@@ -164,4 +173,17 @@ model RecipeImage {
   contentType String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+model RecipeLog {
+  id        String        @id @default(uuid())
+  recipe    Recipe        @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  recipeId  String
+  user      User?         @relation(fields: [userId], references: [id])
+  userId    String?
+  type      RecipeLogType
+  message   String
+  createdAt DateTime      @default(now())
+
+  @@index([recipeId])
 }
