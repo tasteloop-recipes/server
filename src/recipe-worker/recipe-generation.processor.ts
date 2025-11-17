@@ -71,15 +71,22 @@ export class RecipeGenerationProcessor extends WorkerHost {
     }
 
     try {
-      const timeoutPromise = new Promise<never>((_, reject) =>
-        setTimeout(() => {
+      // Refactored: Clear timer if AI completes before timeout
+      const recipeData = await new Promise<typeof recipeResponseFormat.__output>((resolve, reject) => {
+        const timeoutId = setTimeout(() => {
           reject(new Error('Recipe generation timed out after 5 minutes'));
-        }, timeoutMs),
-      );
+        }, timeoutMs);
 
-      const recipeData = await Promise.race<
-        typeof recipeResponseFormat.__output
-      >([this.aiService.generateRecipeData(worker.prompt), timeoutPromise]);
+        this.aiService.generateRecipeData(worker.prompt)
+          .then((result) => {
+            clearTimeout(timeoutId);
+            resolve(result);
+          })
+          .catch((err) => {
+            clearTimeout(timeoutId);
+            reject(err);
+          });
+      });
 
       await this.prisma.$transaction(async (tx) => {
         if (worker.recipe) {
