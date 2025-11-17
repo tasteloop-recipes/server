@@ -90,10 +90,7 @@ export class RecipeGenerationProcessor extends WorkerHost {
         timeoutGuard.promise,
       ]);
 
-      let recipeId: string | null = null;
-      let recipeAuthorId: string | null = null;
-
-      await this.prisma.$transaction(async (tx) => {
+      const createdRecipe = await this.prisma.$transaction(async (tx) => {
         const existingRecipeId = worker.recipe?.id;
         if (existingRecipeId != null) {
           await tx.recipe.delete({ where: { id: existingRecipeId } });
@@ -141,19 +138,19 @@ export class RecipeGenerationProcessor extends WorkerHost {
           },
         };
 
-        const createdRecipe = await tx.recipe.create({ data: recipeCreateInput });
-        recipeId = createdRecipe.id;
-        recipeAuthorId = createdRecipe.authorId;
+        return tx.recipe.create({
+          data: recipeCreateInput,
+        });
       });
 
-      if (recipeId != null) {
-        await this.recipeLogsService.createLog({
-          recipeId,
-          userId: recipeAuthorId ?? undefined,
-          type: RecipeLogType.RECIPE_CREATED,
-          message: recipeData.descriptionOfUpdates,
-        });
-      }
+      await this.recipeLogsService.createLog({
+        recipeId: createdRecipe.id,
+        ...(createdRecipe.authorId != null
+          ? { userId: createdRecipe.authorId }
+          : {}),
+        type: RecipeLogType.RECIPE_CREATED,
+        message: recipeData.descriptionOfUpdates,
+      });
 
       await this.prisma.recipeWorker.update({
         where: { id: worker.id },

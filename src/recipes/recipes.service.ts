@@ -142,7 +142,7 @@ export class RecipesService {
 
     await this.recipeLogsService.createLog({
       recipeId: recipe.id,
-      userId: recipe.authorId ?? undefined,
+      ...(recipe.authorId != null ? { userId: recipe.authorId } : {}),
       type: RecipeLogType.MODIFICATION_REQUESTED,
       message: sanitizedPrompt,
     });
@@ -165,7 +165,7 @@ export class RecipesService {
 
       await this.recipeLogsService.createLog({
         recipeId: recipe.id,
-        userId: recipe.authorId ?? undefined,
+        ...(recipe.authorId != null ? { userId: recipe.authorId } : {}),
         type: RecipeLogType.RECIPE_MODIFIED,
         message: generatedRecipe.descriptionOfUpdates,
       });

@@ -1,6 +1,11 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Injectable, Logger } from '@nestjs/common';
-import { RecipeImage, RecipeLogType, RecipeStatus, type Prisma } from '@prisma/client';
+import {
+  RecipeImage,
+  RecipeLogType,
+  RecipeStatus,
+  type Prisma,
+} from '@prisma/client';
 import type { Job } from 'bullmq';
 import { AiService } from '../ai/ai.service';
 import type { RecipeData } from '../ai/ai.types';
@@ -107,7 +112,9 @@ export class RecipeImageGenerationProcessor extends WorkerHost {
 
       await this.recipeLogsService.createLog({
         recipeId: worker.recipe.id,
-        userId: worker.recipe.authorId ?? undefined,
+        ...(worker.recipe.authorId != null
+          ? { userId: worker.recipe.authorId }
+          : {}),
         type: RecipeLogType.IMAGE_GENERATED,
         message: this.buildImageUrl(generatedImage),
       });
