@@ -1,4 +1,4 @@
-import type { Provider } from '@nestjs/common';
+import type { FactoryProvider } from '@nestjs/common';
 import { S3Client } from '@aws-sdk/client-s3';
 
 function parseBooleanEnv(value?: string): boolean {
@@ -6,7 +6,7 @@ function parseBooleanEnv(value?: string): boolean {
   return ['true', '1', 'yes'].includes(value.trim().toLowerCase());
 }
 
-export const objectStorageProvider: Provider<S3Client> = {
+export const objectStorageProvider: FactoryProvider<S3Client> = {
   provide: S3Client,
   useFactory: () => {
     const endpoint = process.env.SPACES_ENDPOINT;

@@ -1,4 +1,14 @@
+import type { S3Client } from '@aws-sdk/client-s3';
 import { objectStorageProvider } from './object-storage.provider';
+
+const createClient = (): S3Client => {
+  if (typeof objectStorageProvider.useFactory !== 'function') {
+    throw new Error('objectStorageProvider.useFactory must be defined');
+  }
+
+  const useFactory: () => S3Client = objectStorageProvider.useFactory;
+  return useFactory();
+};
 
 describe('objectStorageProvider', () => {
   const originalEnv = process.env;
@@ -23,7 +33,7 @@ describe('objectStorageProvider', () => {
       process.env.SPACES_SECRET_ACCESS_KEY = 'test-secret';
       delete process.env.SPACES_FORCE_PATH_STYLE;
 
-      const client = objectStorageProvider.useFactory();
+      const client = createClient();
       expect(client).toBeDefined();
     });
 
@@ -34,7 +44,7 @@ describe('objectStorageProvider', () => {
       process.env.SPACES_SECRET_ACCESS_KEY = 'test-secret';
       process.env.SPACES_FORCE_PATH_STYLE = '';
 
-      const client = objectStorageProvider.useFactory();
+      const client = createClient();
       expect(client).toBeDefined();
     });
 
@@ -45,7 +55,7 @@ describe('objectStorageProvider', () => {
       process.env.SPACES_SECRET_ACCESS_KEY = 'test-secret';
       process.env.SPACES_FORCE_PATH_STYLE = 'true';
 
-      const client = objectStorageProvider.useFactory();
+      const client = createClient();
       expect(client).toBeDefined();
     });
 
@@ -56,7 +66,7 @@ describe('objectStorageProvider', () => {
       process.env.SPACES_SECRET_ACCESS_KEY = 'test-secret';
       process.env.SPACES_FORCE_PATH_STYLE = '1';
 
-      const client = objectStorageProvider.useFactory();
+      const client = createClient();
       expect(client).toBeDefined();
     });
 
@@ -67,7 +77,7 @@ describe('objectStorageProvider', () => {
       process.env.SPACES_SECRET_ACCESS_KEY = 'test-secret';
       process.env.SPACES_FORCE_PATH_STYLE = 'yes';
 
-      const client = objectStorageProvider.useFactory();
+      const client = createClient();
       expect(client).toBeDefined();
     });
 
@@ -78,7 +88,7 @@ describe('objectStorageProvider', () => {
       process.env.SPACES_SECRET_ACCESS_KEY = 'test-secret';
       process.env.SPACES_FORCE_PATH_STYLE = 'TRUE';
 
-      const client = objectStorageProvider.useFactory();
+      const client = createClient();
       expect(client).toBeDefined();
     });
 
@@ -89,7 +99,7 @@ describe('objectStorageProvider', () => {
       process.env.SPACES_SECRET_ACCESS_KEY = 'test-secret';
       process.env.SPACES_FORCE_PATH_STYLE = ' yes ';
 
-      const client = objectStorageProvider.useFactory();
+      const client = createClient();
       expect(client).toBeDefined();
     });
 
@@ -100,7 +110,7 @@ describe('objectStorageProvider', () => {
       process.env.SPACES_SECRET_ACCESS_KEY = 'test-secret';
       process.env.SPACES_FORCE_PATH_STYLE = 'false';
 
-      const client = objectStorageProvider.useFactory();
+      const client = createClient();
       expect(client).toBeDefined();
     });
 
@@ -111,7 +121,7 @@ describe('objectStorageProvider', () => {
       process.env.SPACES_SECRET_ACCESS_KEY = 'test-secret';
       process.env.SPACES_FORCE_PATH_STYLE = '0';
 
-      const client = objectStorageProvider.useFactory();
+      const client = createClient();
       expect(client).toBeDefined();
     });
 
@@ -122,7 +132,7 @@ describe('objectStorageProvider', () => {
       process.env.SPACES_SECRET_ACCESS_KEY = 'test-secret';
       process.env.SPACES_FORCE_PATH_STYLE = 'random';
 
-      const client = objectStorageProvider.useFactory();
+      const client = createClient();
       expect(client).toBeDefined();
     });
   });
@@ -134,7 +144,7 @@ describe('objectStorageProvider', () => {
       process.env.SPACES_ACCESS_KEY_ID = 'test-key';
       process.env.SPACES_SECRET_ACCESS_KEY = 'test-secret';
 
-      expect(() => objectStorageProvider.useFactory()).toThrow(
+      expect(() => createClient()).toThrow(
         'Object storage configuration is missing',
       );
     });
@@ -145,7 +155,7 @@ describe('objectStorageProvider', () => {
       process.env.SPACES_ACCESS_KEY_ID = 'test-key';
       process.env.SPACES_SECRET_ACCESS_KEY = 'test-secret';
 
-      expect(() => objectStorageProvider.useFactory()).toThrow(
+      expect(() => createClient()).toThrow(
         'Object storage configuration is missing',
       );
     });
@@ -156,7 +166,7 @@ describe('objectStorageProvider', () => {
       delete process.env.SPACES_ACCESS_KEY_ID;
       process.env.SPACES_SECRET_ACCESS_KEY = 'test-secret';
 
-      expect(() => objectStorageProvider.useFactory()).toThrow(
+      expect(() => createClient()).toThrow(
         'Object storage configuration is missing',
       );
     });
@@ -167,7 +177,7 @@ describe('objectStorageProvider', () => {
       process.env.SPACES_ACCESS_KEY_ID = 'test-key';
       delete process.env.SPACES_SECRET_ACCESS_KEY;
 
-      expect(() => objectStorageProvider.useFactory()).toThrow(
+      expect(() => createClient()).toThrow(
         'Object storage configuration is missing',
       );
     });
@@ -179,7 +189,7 @@ describe('objectStorageProvider', () => {
       process.env.SPACES_SECRET_ACCESS_KEY = 'test-secret';
       process.env.SPACES_FORCE_PATH_STYLE = 'true';
 
-      const client = objectStorageProvider.useFactory();
+      const client = createClient();
 
       expect(client).toBeDefined();
       expect(client.config).toBeDefined();
