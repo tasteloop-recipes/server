@@ -4,6 +4,7 @@ import { RecipeModel } from './models/recipe.model';
 import { RecipesService } from './recipes.service';
 import { RecipesInput } from './dto/recipes.input';
 import { RecipeImageModel } from './models/recipe-image.model';
+import { MiscNutritionFactModel } from './models/misc-nutrition-fact.model';
 
 @Resolver(() => RecipeModel)
 export class RecipesResolver {
@@ -23,6 +24,16 @@ export class RecipesResolver {
     @Args('id', { type: () => String }) id: string,
   ): Promise<RecipeModel> {
     return this.recipesService.findOne(id);
+  }
+
+  @ResolveField(() => [MiscNutritionFactModel], {
+    description:
+      'Retrieve the miscellaneous nutrition facts associated with the recipe',
+  })
+  async miscNutritionFacts(
+    @Parent() recipe: RecipeModel,
+  ): Promise<MiscNutritionFactModel[]> {
+    return this.recipesService.findMiscNutritionFacts(recipe.id);
   }
 
   @ResolveField(() => RecipeImageModel, {
