@@ -21,7 +21,7 @@ const miscNutritionFactSchema = z
   .object({
     label: z.string().min(1, 'Nutrition fact label cannot be empty'),
     value: z.number().nonnegative(),
-    unit: z.string().min(1).nullable(),
+    unit: z.union([z.string().min(1), z.null()]),
   })
   .describe(
     'Describes a miscellaneous nutrition fact with label, value, and optional unit. These are additional nutrition facts that do not fall under calories, carbs, fat, protein, or fiber.',
