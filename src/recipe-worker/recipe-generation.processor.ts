@@ -77,7 +77,7 @@ export class RecipeGenerationProcessor extends WorkerHost {
       // Refactored: Clear timer if AI completes before timeout
       const recipeData = await new Promise<typeof recipeResponseFormat.__output>((resolve, reject) => {
         const timeoutId = setTimeout(() => {
-          reject(new Error('Recipe generation timed out after 5 minutes'));
+          reject(new Error(`Recipe generation timed out after ${timeoutMs / 60000} minutes`));
         }, timeoutMs);
 
         this.aiService.generateRecipeData(worker.prompt)
