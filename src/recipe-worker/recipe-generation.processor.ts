@@ -17,6 +17,9 @@ const ALLOWED_STATUSES = new Set<RecipeStatus>([
   RecipeStatus.PROCESSING_RECIPE,
 ]);
 
+// Default timeout for recipe generation jobs (5 minutes, in milliseconds)
+const DEFAULT_TIMEOUT_MS = 300000;
+
 const allergyLookup = new Map<string, Allergy>(
   Object.values(Allergy).map((value) => [value.toUpperCase(), value]),
 );
@@ -34,7 +37,7 @@ export class RecipeGenerationProcessor extends WorkerHost {
   }
 
   async process(job: Job<RecipeGenerationJobData>): Promise<void> {
-    const { workerId, timeoutMs = 300000 } = job.data; // 5 minutes default
+    const { workerId, timeoutMs = DEFAULT_TIMEOUT_MS } = job.data;
 
     const worker = await this.prisma.recipeWorker.findUnique({
       where: { id: workerId },
