@@ -36,6 +36,16 @@ export class RecipeWorkerResolver {
     })
     statuses?: RecipeStatus[],
   ): Promise<RecipeWorkerModel[]> {
-    return this.recipeWorkerService.findMany(limit ?? 50, statuses);
+    return this.recipeWorkerService.findManyWithFilters(limit ?? 50, statuses);
+  }
+
+  @Query(() => RecipeWorkerModel, {
+    name: 'worker',
+    description: 'Retrieve a recipe worker by its identifier',
+  })
+  async worker(
+    @Args('id', { type: () => String }) id: string,
+  ): Promise<RecipeWorkerModel> {
+    return this.recipeWorkerService.findOne(id);
   }
 }
