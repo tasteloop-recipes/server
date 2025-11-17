@@ -62,26 +62,20 @@ export class RecipesService {
   }
 
   async findWorker(recipeId: string): Promise<RecipeWorker> {
-    const recipe = await this.prisma.recipe.findUnique({
+    const recipeWithWorker = await this.prisma.recipe.findUnique({
       where: { id: recipeId },
-      select: { workerId: true },
+      include: { worker: true },
     });
 
-    if (!recipe) {
+    if (!recipeWithWorker) {
       throw new NotFoundException(`Recipe with id "${recipeId}" not found`);
     }
 
-    const worker = await this.prisma.recipeWorker.findUnique({
-      where: { id: recipe.workerId },
-    });
-
-    if (!worker) {
-      throw new NotFoundException(
-        `RecipeWorker with id "${recipe.workerId}" not found`,
-      );
+    if (!recipeWithWorker.worker) {
+      throw new NotFoundException(`RecipeWorker for recipe "${recipeId}" not found`);
     }
 
-    return worker;
+    return recipeWithWorker.worker;
   }
 
   async findMiscNutritionFacts(recipeId: string): Promise<MiscNutritionFact[]> {
