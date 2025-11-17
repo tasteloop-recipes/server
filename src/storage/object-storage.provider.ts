@@ -1,14 +1,19 @@
-import type { Provider } from '@nestjs/common';
+import type { FactoryProvider } from '@nestjs/common';
 import { S3Client } from '@aws-sdk/client-s3';
 
-export const objectStorageProvider: Provider<S3Client> = {
+function parseBooleanEnv(value?: string): boolean {
+  if (value == null) return false;
+  return ['true', '1', 'yes'].includes(value.trim().toLowerCase());
+}
+
+export const objectStorageProvider: FactoryProvider<S3Client> = {
   provide: S3Client,
   useFactory: () => {
     const endpoint = process.env.SPACES_ENDPOINT;
     const region = process.env.SPACES_REGION;
     const accessKeyId = process.env.SPACES_ACCESS_KEY_ID;
     const secretAccessKey = process.env.SPACES_SECRET_ACCESS_KEY;
-    const forcePathStyle = process.env.SPACES_FORCE_PATH_STYLE === 'true';
+    const forcePathStyle = parseBooleanEnv(process.env.SPACES_FORCE_PATH_STYLE);
 
     if (
       endpoint == null ||
@@ -17,7 +22,7 @@ export const objectStorageProvider: Provider<S3Client> = {
       secretAccessKey == null
     ) {
       throw new Error(
-        'DigitalOcean Spaces configuration is missing. Please set SPACES_ENDPOINT, SPACES_REGION, SPACES_ACCESS_KEY_ID, and SPACES_SECRET_ACCESS_KEY.',
+        'Object storage configuration is missing. Please set SPACES_ENDPOINT, SPACES_REGION, SPACES_ACCESS_KEY_ID, and SPACES_SECRET_ACCESS_KEY.',
       );
     }
 

@@ -8,6 +8,7 @@ import { GraphQLScalarType } from 'graphql';
 import { RecipesInput } from './dto/recipes.input';
 import { RecipeModel } from './models/recipe.model';
 import { RecipeImageModel } from './models/recipe-image.model';
+import { MiscNutritionFactModel } from './models/misc-nutrition-fact.model';
 import { RecipesPage, RecipesPageMeta } from './models/recipes-page.model';
 
 const hasTypeFn = (property: {
@@ -64,6 +65,7 @@ describe('GraphQL metadata resolution', () => {
     expect(typeMap.get('proteinType')).toBe(ProteinType);
     expect(typeMap.get('prepTimeMinutes')).toBe(Number);
     expect(typeMap.get('cookTimeMinutes')).toBe(Number);
+    expect(typeMap.get('miscNutritionFacts')).toBe(MiscNutritionFactModel);
     expect(typeMap.get('image')).toBe(RecipeImageModel);
     const createdAtType = typeMap.get('createdAt');
     expect(isGraphQLScalarType(createdAtType)).toBe(true);

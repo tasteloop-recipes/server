@@ -21,7 +21,7 @@ const miscNutritionFactSchema = z
   .object({
     label: z.string().min(1, 'Nutrition fact label cannot be empty'),
     value: z.number().nonnegative(),
-    unit: z.string().min(1).optional().nullable(),
+    unit: z.string().min(1).nullable(),
   })
   .describe(
     'Describes a miscellaneous nutrition fact with label, value, and optional unit. These are additional nutrition facts that do not fall under calories, carbs, fat, protein, or fiber.',
@@ -75,20 +75,24 @@ const proteinTypeEnum = z
 
 export const recipeDataSchema = z
   .object({
-    name: z.string().min(1),
-    prompt: z.string().min(1),
-    description: z.string().min(1),
+    name: z.string().min(1, 'Recipe name cannot be empty'),
+    prompt: z.string().min(1, 'Recipe prompt cannot be empty'),
+    description: z.string().min(1, 'Recipe description cannot be empty'),
     difficulty: recipeDifficultyEnum,
     mealTypes: z.array(mealTypeEnum).min(1),
-    countriesOfOrigin: z.array(z.string()),
+    countriesOfOrigin: z
+      .array(z.string().min(1, 'Country name cannot be empty'))
+      .min(1, 'There must be at least one country of origin'),
     diets: z.array(dietEnum),
-    allergies: z.array(z.string()),
+    allergies: z.array(z.string().min(1, 'Allergy name cannot be empty')),
     proteinType: z.array(proteinTypeEnum),
     prepTimeMinutes: z.number().int().nonnegative(),
     cookTimeMinutes: z.number().int().nonnegative(),
-    preparation: z.array(z.string()),
+    preparation: z
+      .array(z.string().min(1, 'Preparation step cannot be empty'))
+      .min(1),
     instructions: z.array(z.string()),
-    servingSize: z.string().min(1),
+    servingSize: z.string().min(1, 'Serving size cannot be empty'),
     ingredients: z.array(ingredientSchema).min(1),
     nutritionFacts: nutritionFactSchema,
     miscNutritionFacts: z.array(miscNutritionFactSchema),

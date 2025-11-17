@@ -45,3 +45,6 @@ jobs:
 
       - name: Check linting
         run: npm run lint:check
+
+      - name: Type check
+        run: npm run tsc

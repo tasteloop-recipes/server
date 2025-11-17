@@ -1,4 +1,5 @@
 import { NotFoundException } from '@nestjs/common';
+import { Decimal } from '@prisma/client/runtime/library';
 import { MealType, RecipeDifficulty } from '@prisma/client';
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
@@ -13,6 +14,7 @@ describe('RecipesService', () => {
   let countMock: jest.Mock = jest.fn();
   let findUniqueMock: jest.Mock = jest.fn();
   let findRecipeImageMock: jest.Mock = jest.fn();
+  let findMiscNutritionFactMock: jest.Mock = jest.fn();
 
   const getService = (): RecipesService => {
     if (!service) {
@@ -48,6 +50,7 @@ describe('RecipesService', () => {
     countMock = jest.fn();
     findUniqueMock = jest.fn();
     findRecipeImageMock = jest.fn();
+    findMiscNutritionFactMock = jest.fn();
 
     moduleRef = await Test.createTestingModule({
       providers: [
@@ -63,6 +66,9 @@ describe('RecipesService', () => {
             },
             recipeImage: {
               findUnique: findRecipeImageMock,
+            },
+            miscNutritionFact: {
+              findMany: findMiscNutritionFactMock,
             },
           },
         },
@@ -164,6 +170,48 @@ describe('RecipesService', () => {
 
       expect(result).toEqual(image);
       expect(findRecipeImageMock).toHaveBeenCalledWith({
+        where: { recipeId },
+      });
+    });
+  });
+
+  describe('findMiscNutritionFacts', () => {
+    it('should return nutrition facts for recipe id', async () => {
+      const recipeId = 'recipe-1';
+      const nutritionFacts = [
+        {
+          id: 'fact-1',
+          recipeId,
+          label: 'Calories',
+          value: new Decimal('100.50'),
+          unit: 'kcal',
+        },
+        {
+          id: 'fact-2',
+          recipeId,
+          label: 'Protein',
+          value: new Decimal('25.00'),
+          unit: 'g',
+        },
+      ];
+      findMiscNutritionFactMock.mockResolvedValueOnce(nutritionFacts);
+
+      const result = await getService().findMiscNutritionFacts(recipeId);
+
+      expect(result).toEqual(nutritionFacts);
+      expect(findMiscNutritionFactMock).toHaveBeenCalledWith({
+        where: { recipeId },
+      });
+    });
+
+    it('should return empty array when no nutrition facts exist', async () => {
+      const recipeId = 'recipe-1';
+      findMiscNutritionFactMock.mockResolvedValueOnce([]);
+
+      const result = await getService().findMiscNutritionFacts(recipeId);
+
+      expect(result).toEqual([]);
+      expect(findMiscNutritionFactMock).toHaveBeenCalledWith({
         where: { recipeId },
       });
     });

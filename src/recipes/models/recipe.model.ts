@@ -14,6 +14,7 @@ import {
 } from '@prisma/client';
 import { RecipeImageModel } from './recipe-image.model';
 import { RecipeIngredientModel } from './recipe-ingredient.model';
+import { MiscNutritionFactModel } from './misc-nutrition-fact.model';
 
 registerEnumType(RecipeDifficulty, { name: 'RecipeDifficulty' });
 registerEnumType(MealType, { name: 'MealType' });
@@ -70,6 +71,9 @@ export class RecipeModel {
 
   @Field(() => [RecipeIngredientModel])
   ingredients!: RecipeIngredientModel[];
+
+  @Field(() => [MiscNutritionFactModel])
+  miscNutritionFacts?: MiscNutritionFactModel[];
 
   @Field(() => RecipeImageModel, { nullable: true })
   image?: RecipeImageModel | null;
