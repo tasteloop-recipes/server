@@ -85,7 +85,9 @@ export const recipeDataSchema = z
       .min(1, 'There must be at least one country of origin'),
     diets: z.array(dietEnum).min(1, 'There must be at least one diet type'),
     allergies: z.array(z.string().min(1, 'Allergy name cannot be empty')),
-    proteinType: z.array(proteinTypeEnum).min(1, 'There must be at least one protein type'),
+    proteinType: z
+      .array(proteinTypeEnum)
+      .min(1, 'There must be at least one protein type'),
     prepTimeMinutes: z.number().int().nonnegative(),
     cookTimeMinutes: z.number().int().nonnegative(),
     preparation: z
@@ -97,7 +99,9 @@ export const recipeDataSchema = z
     servingSize: z.string().min(1, 'Serving size cannot be empty'),
     ingredients: z.array(ingredientSchema).min(1),
     nutritionFacts: nutritionFactSchema,
-    miscNutritionFacts: z.array(miscNutritionFactSchema).min(1, 'There must be at least one miscellaneous nutrition fact'),
+    miscNutritionFacts: z
+      .array(miscNutritionFactSchema)
+      .min(1, 'There must be at least one miscellaneous nutrition fact'),
   })
   .strict()
   .describe('Formatted schema for generated recipe data');
