@@ -99,9 +99,7 @@ export class RecipeGenerationProcessor extends WorkerHost {
       });
 
       await this.prisma.$transaction(async (tx) => {
-        if (worker.recipe) {
-          await tx.recipe.delete({ where: { id: worker.recipe.id } });
-        }
+        await tx.recipe.deleteMany({ where: { id: worker.recipe?.id } });
 
         const { nutritionFacts } = recipeData;
         const miscFacts = recipeData.miscNutritionFacts;
