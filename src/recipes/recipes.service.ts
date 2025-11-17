@@ -56,6 +56,12 @@ export class RecipesService {
   }
 
   async findIngredients(recipeId: string): Promise<RecipeIngredient[]> {
+    const recipe = await this.prisma.recipe.findUnique({
+      where: { id: recipeId },
+    });
+    if (!recipe) {
+      throw new NotFoundException(`Recipe with id "${recipeId}" not found`);
+    }
     return this.prisma.recipeIngredient.findMany({
       where: { recipeId },
     });
