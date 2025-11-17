@@ -66,6 +66,20 @@ erDiagram
 4. `RecipeImageGenerationProcessor` loads the recipe + relations, builds the image prompt, calls `AiService.generateRecipeImage`, stores metadata in Prisma, and marks the worker `READY`.
 5. GraphQL queries in `RecipesResolver` expose the hydrated recipe, worker, and image metadata to clients.
 
+### Updating recipes without queues
+
+- Use the `modifyRecipe` GraphQL mutation to apply ad-hoc changes to an existing recipe with an updated AI prompt.
+- The mutation accepts the recipe identifier and a prompt, temporarily moves the worker into the `PENDING_MODIFICATIONS` status, calls `AiService.generateRecipeData`, persists the new recipe tree, and re-queues image generation so thumbnails stay in sync.
+- The mutation response is a human-friendly `descriptionOfUpdates` string supplied by the AI response so clients can display a summary of what changed.
+
+Example GraphQL operation:
+
+```graphql
+mutation ModifyRecipe($recipeId: String!, $prompt: String!) {
+  modifyRecipe(recipeId: $recipeId, prompt: $prompt)
+}
+```
+
 ## Running the application
 
 ### Prerequisites

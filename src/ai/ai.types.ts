@@ -78,6 +78,12 @@ export const recipeDataSchema = z
     name: z.string().min(1, 'Recipe name cannot be empty'),
     prompt: z.string().min(1, 'Recipe prompt cannot be empty'),
     description: z.string().min(1, 'Recipe description cannot be empty'),
+    descriptionOfUpdates: z
+      .string()
+      .min(1, 'Description of updates cannot be empty')
+      .describe(
+        'Explains what the assistant changed or created based on the user prompt.',
+      ),
     difficulty: recipeDifficultyEnum,
     mealTypes: z.array(mealTypeEnum).min(1),
     countriesOfOrigin: z

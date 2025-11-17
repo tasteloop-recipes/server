@@ -139,6 +139,8 @@ export class RecipeImageGenerationProcessor extends WorkerHost {
       name: recipe.name,
       prompt,
       description: recipe.description,
+      descriptionOfUpdates:
+        'Existing recipe data loaded for image generation. No modifications were applied.',
       difficulty: recipe.difficulty,
       mealTypes: recipe.mealTypes,
       countriesOfOrigin: recipe.countriesOfOrigin,

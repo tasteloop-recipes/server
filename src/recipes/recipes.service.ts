@@ -1,19 +1,35 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { InjectQueue } from '@nestjs/bullmq';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import {
   Recipe,
   RecipeImage,
   RecipeIngredient,
   RecipeWorker,
   MiscNutritionFact,
+  RecipeStatus,
+  Prisma,
 } from '@prisma/client';
+import type { Queue } from 'bullmq';
 import { PrismaService } from '../prisma/prisma.service';
 import { RecipesPage } from './models/recipes-page.model';
+import { AiService } from '../ai/ai.service';
+import type { RecipeData } from '../ai/ai.types';
+import { normalizeAllergies } from '../common/allergy.util';
 
 const MAX_PAGE_SIZE = 50;
 
 @Injectable()
 export class RecipesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly aiService: AiService,
+    @InjectQueue('recipe-image-generation')
+    private readonly recipeImageQueue: Queue<{ workerId: string }>,
+  ) {}
 
   async findAll(page: number, limit: number): Promise<RecipesPage> {
     const calculatedLimit = Math.min(Math.max(limit, 1), MAX_PAGE_SIZE);
@@ -91,5 +107,153 @@ export class RecipesService {
     return this.prisma.recipeImage.findUnique({
       where: { recipeId },
     });
+  }
+
+  async modifyRecipe(recipeId: string, prompt: string): Promise<string> {
+    const sanitizedPrompt = prompt.trim();
+
+    if (!sanitizedPrompt) {
+      throw new BadRequestException('Prompt is required to modify a recipe');
+    }
+
+    const recipe = await this.prisma.recipe.findUnique({
+      where: { id: recipeId },
+      include: {
+        ingredients: true,
+        worker: true,
+      },
+    });
+
+    if (!recipe) {
+      throw new NotFoundException(`Recipe with id "${recipeId}" not found`);
+    }
+
+    await this.prisma.recipeWorker.update({
+      where: { id: recipe.worker.id },
+      data: { status: RecipeStatus.PENDING_MODIFICATIONS },
+    });
+
+    try {
+      const aiPrompt = this.buildModificationPrompt(recipe, sanitizedPrompt);
+      const generatedRecipe = await this.aiService.generateRecipeData(aiPrompt);
+
+      await this.replaceRecipeData(recipe.id, generatedRecipe);
+
+      await this.prisma.recipeWorker.update({
+        where: { id: recipe.worker.id },
+        data: {
+          status: RecipeStatus.RECIPE_CREATED,
+          prompt: sanitizedPrompt,
+        },
+      });
+
+      await this.restartImageGenerationQueue(recipe.worker.id);
+
+      return generatedRecipe.descriptionOfUpdates;
+    } catch (error) {
+      await this.prisma.recipeWorker.update({
+        where: { id: recipe.worker.id },
+        data: { status: RecipeStatus.READY },
+      });
+
+      throw error;
+    }
+  }
+
+  private buildModificationPrompt(
+    recipe: Prisma.RecipeGetPayload<{ include: { ingredients: true } }>,
+    userPrompt: string,
+  ): string {
+    const ingredientDetails = recipe.ingredients
+      .map((ingredient) => `- ${ingredient.name}: ${ingredient.amount}`)
+      .join('\n');
+
+    return [
+      'You are updating an existing recipe. Adjust the dish based on the user request while keeping instructions concise and safe.',
+      `Current recipe: ${recipe.name}`,
+      `Description: ${recipe.description}`,
+      'Ingredients:',
+      ingredientDetails || '- No ingredients listed.',
+      'User request for modifications:',
+      userPrompt,
+    ].join('\n\n');
+  }
+
+  private async replaceRecipeData(
+    recipeId: string,
+    recipeData: RecipeData,
+  ): Promise<void> {
+    await this.prisma.$transaction(async (tx) => {
+      await tx.recipeIngredient.deleteMany({ where: { recipeId } });
+      await tx.recipeNutritionFact.deleteMany({ where: { recipeId } });
+      await tx.miscNutritionFact.deleteMany({ where: { recipeId } });
+
+      const { nutritionFacts } = recipeData;
+
+      await tx.recipe.update({
+        where: { id: recipeId },
+        data: {
+          name: recipeData.name,
+          description: recipeData.description,
+          difficulty: recipeData.difficulty,
+          mealTypes: recipeData.mealTypes,
+          countriesOfOrigin: recipeData.countriesOfOrigin,
+          diets: recipeData.diets,
+          allergies: normalizeAllergies(recipeData.allergies),
+          proteinType: recipeData.proteinType,
+          prepTimeMinutes: recipeData.prepTimeMinutes,
+          cookTimeMinutes: recipeData.cookTimeMinutes,
+          preparation: recipeData.preparation,
+          instructions: recipeData.instructions,
+          servingSize: recipeData.servingSize,
+        },
+      });
+
+      await tx.recipeIngredient.createMany({
+        data: recipeData.ingredients.map((ingredient) => ({
+          recipeId,
+          name: ingredient.name,
+          amount: ingredient.amount,
+        })),
+      });
+
+      await tx.recipeNutritionFact.create({
+        data: {
+          recipeId,
+          calories: nutritionFacts.calories,
+          carbs: nutritionFacts.carbs,
+          fat: nutritionFacts.fat,
+          protein: nutritionFacts.protein,
+          fiber: nutritionFacts.fiber,
+        },
+      });
+
+      if (recipeData.miscNutritionFacts.length > 0) {
+        await tx.miscNutritionFact.createMany({
+          data: recipeData.miscNutritionFacts.map((fact) => ({
+            recipeId,
+            label: fact.label,
+            value: fact.value,
+            unit: fact.unit ?? null,
+          })),
+        });
+      }
+    });
+  }
+
+  private async restartImageGenerationQueue(workerId: string): Promise<void> {
+    await this.recipeImageQueue.add(
+      'generate-recipe-image',
+      { workerId },
+      {
+        attempts: 3,
+        backoff: {
+          type: 'exponential',
+          delay: 1000,
+        },
+        removeOnComplete: true,
+        removeOnFail: false,
+      },
+    );
   }
 }

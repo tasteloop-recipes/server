@@ -1,4 +1,11 @@
-import { Args, Parent, Query, ResolveField, Resolver } from '@nestjs/graphql';
+import {
+  Args,
+  Mutation,
+  Parent,
+  Query,
+  ResolveField,
+  Resolver,
+} from '@nestjs/graphql';
 import type { Recipe, MiscNutritionFact } from '@prisma/client';
 import { RecipesPage } from './models/recipes-page.model';
 import { RecipeModel } from './models/recipe.model';
@@ -27,6 +34,17 @@ export class RecipesResolver {
     @Args('id', { type: () => String }) id: string,
   ): Promise<RecipeModel> {
     return this.recipesService.findOne(id);
+  }
+
+  @Mutation(() => String, {
+    name: 'modifyRecipe',
+    description: 'Modify an existing recipe using an AI prompt',
+  })
+  async modifyRecipe(
+    @Args('recipeId', { type: () => String }) recipeId: string,
+    @Args('prompt', { type: () => String }) prompt: string,
+  ): Promise<string> {
+    return this.recipesService.modifyRecipe(recipeId, prompt);
   }
 
   @ResolveField(() => [RecipeIngredientModel], {
