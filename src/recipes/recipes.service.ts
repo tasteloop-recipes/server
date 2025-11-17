@@ -71,13 +71,14 @@ export class RecipesService {
       throw new NotFoundException(`Recipe with id "${recipeId}" not found`);
     }
 
-    if (!recipeWithWorker.worker) {
+    const worker = recipeWithWorker.worker as RecipeWorker | null;
+    if (!worker) {
       throw new NotFoundException(
         `RecipeWorker for recipe "${recipeId}" not found`,
       );
     }
 
-    return recipeWithWorker.worker;
+    return worker;
   }
 
   async findMiscNutritionFacts(recipeId: string): Promise<MiscNutritionFact[]> {
