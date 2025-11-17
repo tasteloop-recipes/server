@@ -1,5 +1,10 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { Recipe, RecipeImage, MiscNutritionFact } from '@prisma/client';
+import {
+  Recipe,
+  RecipeImage,
+  RecipeWorker,
+  MiscNutritionFact,
+} from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { RecipesPage } from './models/recipes-page.model';
 
@@ -45,6 +50,29 @@ export class RecipesService {
     }
 
     return recipe;
+  }
+
+  async findWorker(recipeId: string): Promise<RecipeWorker> {
+    const recipe = await this.prisma.recipe.findUnique({
+      where: { id: recipeId },
+      select: { workerId: true },
+    });
+
+    if (!recipe) {
+      throw new NotFoundException(`Recipe with id "${recipeId}" not found`);
+    }
+
+    const worker = await this.prisma.recipeWorker.findUnique({
+      where: { id: recipe.workerId },
+    });
+
+    if (!worker) {
+      throw new NotFoundException(
+        `RecipeWorker with id "${recipe.workerId}" not found`,
+      );
+    }
+
+    return worker;
   }
 
   async findMiscNutritionFacts(recipeId: string): Promise<MiscNutritionFact[]> {

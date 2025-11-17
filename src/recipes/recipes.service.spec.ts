@@ -14,6 +14,7 @@ describe('RecipesService', () => {
   let countMock: jest.Mock = jest.fn();
   let findUniqueMock: jest.Mock = jest.fn();
   let findRecipeImageMock: jest.Mock = jest.fn();
+  let findUniqueWorkerMock: jest.Mock = jest.fn();
   let findMiscNutritionFactMock: jest.Mock = jest.fn();
 
   const getService = (): RecipesService => {
@@ -50,6 +51,7 @@ describe('RecipesService', () => {
     countMock = jest.fn();
     findUniqueMock = jest.fn();
     findRecipeImageMock = jest.fn();
+    findUniqueWorkerMock = jest.fn();
     findMiscNutritionFactMock = jest.fn();
 
     moduleRef = await Test.createTestingModule({
@@ -66,6 +68,9 @@ describe('RecipesService', () => {
             },
             recipeImage: {
               findUnique: findRecipeImageMock,
+            },
+            recipeWorker: {
+              findUnique: findUniqueWorkerMock,
             },
             miscNutritionFact: {
               findMany: findMiscNutritionFactMock,
@@ -174,6 +179,78 @@ describe('RecipesService', () => {
       expect(findRecipeImageMock).toHaveBeenCalledWith({
         where: { recipeId },
       });
+    });
+  });
+
+  describe('findWorker', () => {
+    it('should return worker for recipe id', async () => {
+      const recipeId = 'recipe-1';
+      const workerId = 'worker-1';
+      const mockWorker = { id: workerId, name: 'Test Worker' };
+
+      findUniqueMock.mockResolvedValueOnce({ workerId });
+      findUniqueWorkerMock.mockResolvedValueOnce(mockWorker);
+
+      const result = await getService().findWorker(recipeId);
+
+      expect(result).toEqual(mockWorker);
+      expect(findUniqueMock).toHaveBeenCalledWith({
+        where: { id: recipeId },
+        select: { workerId: true },
+      });
+      expect(findUniqueWorkerMock).toHaveBeenCalledWith({
+        where: { id: workerId },
+      });
+    });
+
+    it('should throw NotFoundException when recipe does not exist', async () => {
+      const recipeId = 'nonexistent-recipe';
+      findUniqueMock.mockResolvedValueOnce(null);
+
+      await expect(getService().findWorker(recipeId)).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(findUniqueMock).toHaveBeenCalledWith({
+        where: { id: recipeId },
+        select: { workerId: true },
+      });
+      expect(findUniqueWorkerMock).not.toHaveBeenCalled();
+    });
+
+    it('should throw NotFoundException with correct message when recipe not found', async () => {
+      const recipeId = 'recipe-123';
+      findUniqueMock.mockResolvedValueOnce(null);
+
+      await expect(getService().findWorker(recipeId)).rejects.toThrow(
+        `Recipe with id "${recipeId}" not found`,
+      );
+    });
+
+    it('should throw NotFoundException when worker does not exist', async () => {
+      const recipeId = 'recipe-1';
+      const workerId = 'worker-1';
+
+      findUniqueMock.mockResolvedValueOnce({ workerId });
+      findUniqueWorkerMock.mockResolvedValueOnce(null);
+
+      await expect(getService().findWorker(recipeId)).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(findUniqueWorkerMock).toHaveBeenCalledWith({
+        where: { id: workerId },
+      });
+    });
+
+    it('should throw NotFoundException with correct message when worker not found', async () => {
+      const recipeId = 'recipe-1';
+      const workerId = 'worker-123';
+
+      findUniqueMock.mockResolvedValueOnce({ workerId });
+      findUniqueWorkerMock.mockResolvedValueOnce(null);
+
+      await expect(getService().findWorker(recipeId)).rejects.toThrow(
+        `RecipeWorker with id "${workerId}" not found`,
+      );
     });
   });
 
