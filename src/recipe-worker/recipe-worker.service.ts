@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Injectable,
   InternalServerErrorException,
+  NotFoundException,
 } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { type RecipeWorker, RecipeStatus } from '@prisma/client';
@@ -51,28 +52,44 @@ export class RecipeWorkerService {
         data: { status: RecipeStatus.ERROR },
       });
 
-      throw new InternalServerErrorException(
-        'Failed to enqueue recipe generation job',
-        { cause: error instanceof Error ? error : undefined },
-      );
+      let errorMessage = 'Failed to enqueue recipe generation job';
+      if (error instanceof Error) {
+        errorMessage += `: ${error.message}`;
+      }
+      throw new InternalServerErrorException(errorMessage, {
+        cause: error instanceof Error ? error : undefined,
+      });
     }
 
     return worker;
   }
 
-  async findMany(
+  async findManyWithFilters(
     limit = 50,
     statuses?: RecipeStatus[],
   ): Promise<RecipeWorker[]> {
     const sanitizedLimit = Math.min(Math.max(limit, 1), MAX_WORKERS_PAGE_SIZE);
+    const statusFilter =
+      statuses !== undefined && statuses.length > 0
+        ? { status: { in: statuses } }
+        : undefined;
 
     return this.prisma.recipeWorker.findMany({
-      where:
-        statuses && statuses.length > 0
-          ? { status: { in: statuses } }
-          : undefined,
+      where: statusFilter,
       take: sanitizedLimit,
       orderBy: { createdAt: 'desc' },
     });
+  }
+
+  async findOne(id: string): Promise<RecipeWorker> {
+    const worker = await this.prisma.recipeWorker.findUnique({
+      where: { id },
+    });
+
+    if (!worker) {
+      throw new NotFoundException(`Recipe worker with id "${id}" not found`);
+    }
+
+    return worker;
   }
 }
