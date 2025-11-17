@@ -17,7 +17,7 @@ export const objectStorageProvider: Provider<S3Client> = {
       secretAccessKey == null
     ) {
       throw new Error(
-        'DigitalOcean Spaces configuration is missing. Please set SPACES_ENDPOINT, SPACES_REGION, SPACES_ACCESS_KEY_ID, and SPACES_SECRET_ACCESS_KEY.',
+        'Object storage configuration is missing. Please set SPACES_ENDPOINT, SPACES_REGION, SPACES_ACCESS_KEY_ID, and SPACES_SECRET_ACCESS_KEY.',
       );
     }
 
