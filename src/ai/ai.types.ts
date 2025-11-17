@@ -88,7 +88,7 @@ export const recipeDataSchema = z
     cookTimeMinutes: z.number().int().nonnegative(),
     preparation: z.array(z.string()),
     instructions: z.array(z.string()),
-    servingSize: z.string().min(1),
+    servingSize: z.string().min(1, 'Serving size cannot be empty'),
     ingredients: z.array(ingredientSchema).min(1),
     nutritionFacts: nutritionFactSchema,
     miscNutritionFacts: z.array(miscNutritionFactSchema),
