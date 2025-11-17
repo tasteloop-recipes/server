@@ -1,12 +1,6 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Injectable, Logger } from '@nestjs/common';
-import {
-  RecipeStatus,
-  type Recipe,
-  type RecipeIngredient,
-  type RecipeNutritionFact,
-  type MiscNutritionFact,
-} from '@prisma/client';
+import { RecipeStatus, type Recipe } from '@prisma/client';
 import type { Job } from 'bullmq';
 import { AiService } from '../ai/ai.service';
 import type { RecipeData } from '../ai/ai.types';
@@ -124,7 +118,7 @@ export class RecipeImageGenerationProcessor extends WorkerHost {
   }
 
   private buildRecipeData(
-    recipe: RecipeWithDetails,
+    recipe: Recipe,
     prompt: string,
   ): RecipeData {
     const nutritionFacts = recipe.nutritionFacts.at(0);
@@ -167,9 +161,3 @@ export class RecipeImageGenerationProcessor extends WorkerHost {
     };
   }
 }
-
-type RecipeWithDetails = Recipe & {
-  ingredients: RecipeIngredient[];
-  nutritionFacts: RecipeNutritionFact[];
-  miscNutritionFacts: MiscNutritionFact[];
-};

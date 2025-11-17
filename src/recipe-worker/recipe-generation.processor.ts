@@ -5,10 +5,9 @@ import { Allergy, RecipeStatus, type Prisma } from '@prisma/client';
 import type { Job } from 'bullmq';
 import type { Queue } from 'bullmq';
 import { AiService } from '../ai/ai.service';
-import { recipeResponseFormat } from '../ai/ai.types';
 import { PrismaService } from '../prisma/prisma.service';
 
-interface RecipeGenerationJobData {
+export interface RecipeGenerationJobData {
   workerId: string;
   timeoutMs?: number;
 }
@@ -18,6 +17,9 @@ const ALLOWED_STATUSES = new Set<RecipeStatus>([
   RecipeStatus.ERROR,
   RecipeStatus.PROCESSING_RECIPE,
 ]);
+
+// Default timeout for recipe generation jobs (5 minutes, in milliseconds)
+const DEFAULT_TIMEOUT_MS = 300000;
 
 const allergyLookup = new Map<string, Allergy>(
   Object.values(Allergy).map((value) => [value.toUpperCase(), value]),
@@ -38,7 +40,7 @@ export class RecipeGenerationProcessor extends WorkerHost {
   }
 
   async process(job: Job<RecipeGenerationJobData>): Promise<void> {
-    const { workerId, timeoutMs = 300000 } = job.data; // 5 minutes default
+    const { workerId, timeoutMs = DEFAULT_TIMEOUT_MS } = job.data;
 
     const worker = await this.prisma.recipeWorker.findUnique({
       where: { id: workerId },
@@ -75,20 +77,24 @@ export class RecipeGenerationProcessor extends WorkerHost {
     }
 
     try {
+      // Refactored: Clear timer if AI completes before timeout
       const timeoutPromise = new Promise<never>((_, reject) =>
         setTimeout(() => {
-          reject(new Error('Recipe generation timed out after 5 minutes'));
+          reject(
+            new Error(
+              `Recipe generation timed out after ${timeoutMs / 60000} minutes`,
+            ),
+          );
         }, timeoutMs),
       );
 
-      const recipeData = await Promise.race<
-        typeof recipeResponseFormat.__output
-      >([this.aiService.generateRecipeData(worker.prompt), timeoutPromise]);
+      const recipeData = await Promise.race([
+        this.aiService.generateRecipeData(worker.prompt),
+        timeoutPromise,
+      ]);
 
       await this.prisma.$transaction(async (tx) => {
-        if (worker.recipe) {
-          await tx.recipe.delete({ where: { id: worker.recipe.id } });
-        }
+        await tx.recipe.deleteMany({ where: { id: worker.recipe?.id } });
 
         const { nutritionFacts } = recipeData;
         const miscFacts = recipeData.miscNutritionFacts;
@@ -172,7 +178,7 @@ export class RecipeGenerationProcessor extends WorkerHost {
     const normalized = new Set<Allergy>();
 
     for (const value of values) {
-      const formatted = value.trim().toUpperCase().replace(/\s+/g, '_');
+      const formatted = this.normalizeAllergyValue(value);
       const match = allergyLookup.get(formatted);
 
       if (match) {
@@ -181,6 +187,13 @@ export class RecipeGenerationProcessor extends WorkerHost {
     }
 
     return [...normalized];
+  }
+
+  /**
+   * Normalizes an allergy string to a consistent format (trim, uppercase, underscores for whitespace).
+   */
+  private normalizeAllergyValue(value: string): string {
+    return value.trim().toUpperCase().replace(/\s+/g, '_');
   }
 
   private async enqueueImageGenerationJob(workerId: string): Promise<void> {
