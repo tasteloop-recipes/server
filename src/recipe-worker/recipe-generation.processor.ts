@@ -6,7 +6,7 @@ import { AiService } from '../ai/ai.service';
 import { recipeResponseFormat } from '../ai/ai.types';
 import { PrismaService } from '../prisma/prisma.service';
 
-interface RecipeGenerationJobData {
+export interface RecipeGenerationJobData {
   workerId: string;
   timeoutMs?: number;
 }
@@ -16,6 +16,9 @@ const ALLOWED_STATUSES = new Set<RecipeStatus>([
   RecipeStatus.ERROR,
   RecipeStatus.PROCESSING_RECIPE,
 ]);
+
+// Default timeout for recipe generation jobs (5 minutes, in milliseconds)
+const DEFAULT_TIMEOUT_MS = 300000;
 
 const allergyLookup = new Map<string, Allergy>(
   Object.values(Allergy).map((value) => [value.toUpperCase(), value]),
@@ -34,7 +37,7 @@ export class RecipeGenerationProcessor extends WorkerHost {
   }
 
   async process(job: Job<RecipeGenerationJobData>): Promise<void> {
-    const { workerId, timeoutMs = 300000 } = job.data; // 5 minutes default
+    const { workerId, timeoutMs = DEFAULT_TIMEOUT_MS } = job.data;
 
     const worker = await this.prisma.recipeWorker.findUnique({
       where: { id: workerId },
@@ -71,15 +74,29 @@ export class RecipeGenerationProcessor extends WorkerHost {
     }
 
     try {
-      const timeoutPromise = new Promise<never>((_, reject) =>
-        setTimeout(() => {
-          reject(new Error('Recipe generation timed out after 5 minutes'));
-        }, timeoutMs),
-      );
-
-      const recipeData = await Promise.race<
+      // Refactored: Clear timer if AI completes before timeout
+      const recipeData = await new Promise<
         typeof recipeResponseFormat.__output
-      >([this.aiService.generateRecipeData(worker.prompt), timeoutPromise]);
+      >((resolve, reject) => {
+        const timeoutId = setTimeout(() => {
+          reject(
+            new Error(
+              `Recipe generation timed out after ${timeoutMs / 60000} minutes`,
+            ),
+          );
+        }, timeoutMs);
+
+        this.aiService
+          .generateRecipeData(worker.prompt)
+          .then((result) => {
+            clearTimeout(timeoutId);
+            resolve(result);
+          })
+          .catch((err: unknown) => {
+            clearTimeout(timeoutId);
+            reject(err instanceof Error ? err : new Error(String(err)));
+          });
+      });
 
       await this.prisma.$transaction(async (tx) => {
         if (worker.recipe) {
