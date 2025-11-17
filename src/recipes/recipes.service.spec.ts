@@ -105,26 +105,28 @@ describe('RecipesService', () => {
     });
 
     it('should calculate totalPages correctly', async () => {
-      const mockRecipes = Array(50)
+      const MOCK_RECIPE_PAGE_SIZE = 50;
+      const mockRecipes = Array(MOCK_RECIPE_PAGE_SIZE)
         .fill(null)
         .map((_, i) => ({ ...mockRecipe, id: String(i) }));
       transactionMock.mockResolvedValueOnce([mockRecipes, 150]);
 
-      const result = await getService().findAll(1, 50);
+      const result = await getService().findAll(1, MOCK_RECIPE_PAGE_SIZE);
 
       expect(result.meta.totalPages).toBe(3);
     });
 
+    const TOTAL_RECIPES_COUNT = 20;
     it('should calculate skip correctly for pagination', async () => {
       const mockRecipes = [mockRecipe];
-      transactionMock.mockResolvedValueOnce([mockRecipes, 20]);
+      transactionMock.mockResolvedValueOnce([mockRecipes, TOTAL_RECIPES_COUNT]);
       findManyMock.mockResolvedValueOnce(mockRecipes);
 
       await getService().findAll(3, 10);
 
       expect(findManyMock).toHaveBeenCalledWith(
         expect.objectContaining({
-          skip: 20,
+          skip: (3 - 1) * 10,
           take: 10,
         }),
       );
