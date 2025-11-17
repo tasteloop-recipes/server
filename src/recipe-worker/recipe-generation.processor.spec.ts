@@ -22,7 +22,7 @@ describe('RecipeGenerationProcessor', () => {
 
   type TransactionCallback = (tx: {
     recipe: {
-      delete: jest.Mock;
+      deleteMany: jest.Mock;
       create?: jest.Mock;
     };
     recipeWorker: {
@@ -187,7 +187,7 @@ describe('RecipeGenerationProcessor', () => {
         async (callback: TransactionCallback) => {
           await callback({
             recipe: {
-              delete: jest.fn(),
+              deleteMany: jest.fn(),
               create: jest.fn(),
             },
             recipeWorker: {
@@ -226,7 +226,7 @@ describe('RecipeGenerationProcessor', () => {
         async (callback: TransactionCallback) => {
           await callback({
             recipe: {
-              delete: jest.fn(),
+              deleteMany: jest.fn(),
               create: jest.fn(),
             },
             recipeWorker: {
@@ -297,7 +297,7 @@ describe('RecipeGenerationProcessor', () => {
         async (callback: TransactionCallback) => {
           await callback({
             recipe: {
-              delete: jest.fn(),
+              deleteMany: jest.fn(),
               create: jest.fn(),
             },
             recipeWorker: {
@@ -385,7 +385,7 @@ describe('RecipeGenerationProcessor', () => {
         async (callback: TransactionCallback) => {
           await callback({
             recipe: {
-              delete: jest.fn(),
+              deleteMany: jest.fn(),
               create: jest.fn(),
             },
             recipeWorker: {
@@ -422,7 +422,7 @@ describe('RecipeGenerationProcessor', () => {
         async (callback: TransactionCallback) => {
           await callback({
             recipe: {
-              delete: deleteRecipeMock,
+              deleteMany: deleteRecipeMock,
               create: createRecipeMock,
             },
             recipeWorker: {
