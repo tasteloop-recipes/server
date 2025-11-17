@@ -1,5 +1,10 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { Recipe, RecipeImage, RecipeWorker, MiscNutritionFact } from '@prisma/client';
+import {
+  Recipe,
+  RecipeImage,
+  RecipeWorker,
+  MiscNutritionFact,
+} from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { RecipesPage } from './models/recipes-page.model';
 
