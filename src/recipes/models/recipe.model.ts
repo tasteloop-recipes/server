@@ -68,8 +68,8 @@ export class RecipeModel {
   @Field()
   servingSize!: string;
 
-  @Field(() => RecipeWorkerModel)
-  worker!: RecipeWorkerModel;
+  @Field(() => RecipeWorkerModel, { nullable: true })
+  worker?: RecipeWorkerModel | null;
 
   @Field(() => RecipeImageModel, { nullable: true })
   image?: RecipeImageModel | null;
