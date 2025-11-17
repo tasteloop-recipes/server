@@ -77,7 +77,7 @@ export const recipeDataSchema = z
   .object({
     name: z.string().min(1),
     prompt: z.string().min(1),
-    description: z.string().min(1),
+    description: z.string().min(1, 'Recipe description cannot be empty'),
     difficulty: recipeDifficultyEnum,
     mealTypes: z.array(mealTypeEnum).min(1),
     countriesOfOrigin: z.array(z.string()),
