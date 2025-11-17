@@ -51,8 +51,12 @@ export class RecipeWorkerService {
         data: { status: RecipeStatus.ERROR },
       });
 
+      let errorMessage = 'Failed to enqueue recipe generation job';
+      if (error instanceof Error) {
+        errorMessage += `: ${error.message}`;
+      }
       throw new InternalServerErrorException(
-        'Failed to enqueue recipe generation job',
+        errorMessage,
         { cause: error instanceof Error ? error : undefined },
       );
     }
