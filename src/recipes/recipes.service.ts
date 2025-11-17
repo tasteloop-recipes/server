@@ -72,7 +72,9 @@ export class RecipesService {
     }
 
     if (!recipeWithWorker.worker) {
-      throw new NotFoundException(`RecipeWorker for recipe "${recipeId}" not found`);
+      throw new NotFoundException(
+        `RecipeWorker for recipe "${recipeId}" not found`,
+      );
     }
 
     return recipeWithWorker.worker;
