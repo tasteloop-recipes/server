@@ -82,7 +82,7 @@ export const recipeDataSchema = z
     mealTypes: z.array(mealTypeEnum).min(1),
     countriesOfOrigin: z.array(z.string()),
     diets: z.array(dietEnum),
-    allergies: z.array(z.string()),
+    allergies: z.array(z.string().min(1, 'Allergy name cannot be empty')),
     proteinType: z.array(proteinTypeEnum),
     prepTimeMinutes: z.number().int().nonnegative(),
     cookTimeMinutes: z.number().int().nonnegative(),
