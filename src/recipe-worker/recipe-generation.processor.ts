@@ -3,7 +3,6 @@ import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { Allergy, RecipeStatus, type Prisma } from '@prisma/client';
 import type { Job } from 'bullmq';
 import { AiService } from '../ai/ai.service';
-import { recipeResponseFormat } from '../ai/ai.types';
 import { PrismaService } from '../prisma/prisma.service';
 
 export interface RecipeGenerationJobData {
@@ -82,13 +81,13 @@ export class RecipeGenerationProcessor extends WorkerHost {
               `Recipe generation timed out after ${timeoutMs / 60000} minutes`,
             ),
           );
-        }, timeoutMs)
+        }, timeoutMs),
       );
 
       const recipeData = await Promise.race([
         this.aiService.generateRecipeData(worker.prompt),
         timeoutPromise,
-      ]) as typeof recipeResponseFormat.__output;
+      ]);
 
       await this.prisma.$transaction(async (tx) => {
         await tx.recipe.deleteMany({ where: { id: worker.recipe?.id } });
