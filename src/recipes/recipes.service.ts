@@ -19,6 +19,7 @@ import { RecipesPage } from './models/recipes-page.model';
 import { AiService } from '../ai/ai.service';
 import type { RecipeData } from '../ai/ai.types';
 import { normalizeAllergies } from '../common/allergy.util';
+import { ModifyRecipeResultDto } from './dto/modify-recipe-result.dto';
 
 const MAX_PAGE_SIZE = 50;
 
@@ -109,7 +110,10 @@ export class RecipesService {
     });
   }
 
-  async modifyRecipe(recipeId: string, prompt: string): Promise<string> {
+  async modifyRecipe(
+    recipeId: string,
+    prompt: string,
+  ): Promise<ModifyRecipeResultDto> {
     const sanitizedPrompt = prompt.trim();
 
     if (!sanitizedPrompt) {
@@ -149,7 +153,12 @@ export class RecipesService {
 
       await this.restartImageGenerationQueue(recipe.worker.id);
 
-      return generatedRecipe.descriptionOfUpdates;
+      const updatedRecipe = await this.findOne(recipe.id);
+
+      return {
+        recipe: updatedRecipe,
+        descriptionOfUpdates: generatedRecipe.descriptionOfUpdates,
+      };
     } catch (error) {
       await this.prisma.recipeWorker.update({
         where: { id: recipe.worker.id },
