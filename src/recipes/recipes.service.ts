@@ -62,22 +62,19 @@ export class RecipesService {
   }
 
   async findWorker(recipeId: string): Promise<RecipeWorker> {
-    const recipe = await this.prisma.recipe.findUnique({
+    const recipeWithWorker = await this.prisma.recipe.findUnique({
       where: { id: recipeId },
-      select: { workerId: true },
+      include: { worker: true },
     });
 
-    if (!recipe) {
+    if (!recipeWithWorker) {
       throw new NotFoundException(`Recipe with id "${recipeId}" not found`);
     }
 
-    const worker = await this.prisma.recipeWorker.findUnique({
-      where: { id: recipe.workerId },
-    });
-
+    const worker = recipeWithWorker.worker as RecipeWorker | null;
     if (!worker) {
       throw new NotFoundException(
-        `RecipeWorker with id "${recipe.workerId}" not found`,
+        `RecipeWorker for recipe "${recipeId}" not found`,
       );
     }
 
@@ -85,24 +82,12 @@ export class RecipesService {
   }
 
   async findMiscNutritionFacts(recipeId: string): Promise<MiscNutritionFact[]> {
-    const recipe = await this.prisma.recipe.findUnique({
-      where: { id: recipeId },
-    });
-    if (!recipe) {
-      throw new NotFoundException(`Recipe with id "${recipeId}" not found`);
-    }
     return this.prisma.miscNutritionFact.findMany({
       where: { recipeId },
     });
   }
 
   async findImage(recipeId: string): Promise<RecipeImage | null> {
-    const recipe = await this.prisma.recipe.findUnique({
-      where: { id: recipeId },
-    });
-    if (!recipe) {
-      throw new NotFoundException(`Recipe with id "${recipeId}" not found`);
-    }
     return this.prisma.recipeImage.findUnique({
       where: { recipeId },
     });

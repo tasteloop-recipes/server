@@ -233,21 +233,19 @@ describe('RecipesService', () => {
   describe('findWorker', () => {
     it('should return worker for recipe id', async () => {
       const recipeId = 'recipe-1';
-      const workerId = 'worker-1';
-      const mockWorker = { id: workerId, name: 'Test Worker' };
+      const mockWorker = { id: 'worker-1', name: 'Test Worker' };
 
-      findUniqueMock.mockResolvedValueOnce({ workerId });
-      findUniqueWorkerMock.mockResolvedValueOnce(mockWorker);
+      findUniqueMock.mockResolvedValueOnce({
+        id: recipeId,
+        worker: mockWorker,
+      });
 
       const result = await getService().findWorker(recipeId);
 
       expect(result).toEqual(mockWorker);
       expect(findUniqueMock).toHaveBeenCalledWith({
         where: { id: recipeId },
-        select: { workerId: true },
-      });
-      expect(findUniqueWorkerMock).toHaveBeenCalledWith({
-        where: { id: workerId },
+        include: { worker: true },
       });
     });
 
@@ -260,9 +258,8 @@ describe('RecipesService', () => {
       );
       expect(findUniqueMock).toHaveBeenCalledWith({
         where: { id: recipeId },
-        select: { workerId: true },
+        include: { worker: true },
       });
-      expect(findUniqueWorkerMock).not.toHaveBeenCalled();
     });
 
     it('should throw NotFoundException with correct message when recipe not found', async () => {
@@ -276,28 +273,27 @@ describe('RecipesService', () => {
 
     it('should throw NotFoundException when worker does not exist', async () => {
       const recipeId = 'recipe-1';
-      const workerId = 'worker-1';
 
-      findUniqueMock.mockResolvedValueOnce({ workerId });
-      findUniqueWorkerMock.mockResolvedValueOnce(null);
+      findUniqueMock.mockResolvedValueOnce({
+        id: recipeId,
+        worker: null,
+      });
 
       await expect(getService().findWorker(recipeId)).rejects.toThrow(
         NotFoundException,
       );
-      expect(findUniqueWorkerMock).toHaveBeenCalledWith({
-        where: { id: workerId },
-      });
     });
 
     it('should throw NotFoundException with correct message when worker not found', async () => {
       const recipeId = 'recipe-1';
-      const workerId = 'worker-123';
 
-      findUniqueMock.mockResolvedValueOnce({ workerId });
-      findUniqueWorkerMock.mockResolvedValueOnce(null);
+      findUniqueMock.mockResolvedValueOnce({
+        id: recipeId,
+        worker: null,
+      });
 
       await expect(getService().findWorker(recipeId)).rejects.toThrow(
-        `RecipeWorker with id "${workerId}" not found`,
+        `RecipeWorker for recipe "${recipeId}" not found`,
       );
     });
   });
