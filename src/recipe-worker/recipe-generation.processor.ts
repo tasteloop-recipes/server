@@ -6,7 +6,7 @@ import { AiService } from '../ai/ai.service';
 import { recipeResponseFormat } from '../ai/ai.types';
 import { PrismaService } from '../prisma/prisma.service';
 
-interface RecipeGenerationJobData {
+export interface RecipeGenerationJobData {
   workerId: string;
   timeoutMs?: number;
 }
@@ -75,19 +75,26 @@ export class RecipeGenerationProcessor extends WorkerHost {
 
     try {
       // Refactored: Clear timer if AI completes before timeout
-      const recipeData = await new Promise<typeof recipeResponseFormat.__output>((resolve, reject) => {
+      const recipeData = await new Promise<
+        typeof recipeResponseFormat.__output
+      >((resolve, reject) => {
         const timeoutId = setTimeout(() => {
-          reject(new Error(`Recipe generation timed out after ${timeoutMs / 60000} minutes`));
+          reject(
+            new Error(
+              `Recipe generation timed out after ${timeoutMs / 60000} minutes`,
+            ),
+          );
         }, timeoutMs);
 
-        this.aiService.generateRecipeData(worker.prompt)
+        this.aiService
+          .generateRecipeData(worker.prompt)
           .then((result) => {
             clearTimeout(timeoutId);
             resolve(result);
           })
-          .catch((err) => {
+          .catch((err: unknown) => {
             clearTimeout(timeoutId);
-            reject(err);
+            reject(err instanceof Error ? err : new Error(String(err)));
           });
       });
 
