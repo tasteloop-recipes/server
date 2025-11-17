@@ -12,6 +12,7 @@
     "start": "nest start",
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
+    "tsc": "tsc --noEmit",
     "start:prod": "node dist/main",
     "start:queue": "node dist/queue/queue.worker",
     "start:queue:dev": "ts-node -r tsconfig-paths/register src/queue/queue.worker.ts",
@@ -19,7 +20,7 @@
     "lint:check": "eslint \"{src,apps,libs,test}/**/*.ts\" --no-inline-config --max-warnings=0",
     "test": "jest",
     "test:watch": "jest --watch",
-    "test:cov": "jest --reporters=jest-junit --coverage",
+    "test:cov": "jest --reporters=jest-junit --coverage --watchman=false",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json --reporters=default --reporters=jest-junit --passWithNoTests",
     "prisma:generate": "prisma generate --schema prisma/schema.prisma",
@@ -86,6 +87,7 @@
       "json",
       "ts"
     ],
+    "watchman": false,
     "rootDir": "src",
     "testRegex": ".*\\.spec\\.ts$",
     "transform": {
@@ -95,8 +97,7 @@
       "**/*.(t|j)s",
       "!**/*.spec.ts",
       "!**/*.test.ts",
-      "!**/test/**",
-      "!**/main.ts"
+      "!**/test/**"
     ],
     "coverageDirectory": "../coverage",
     "testEnvironment": "node",
