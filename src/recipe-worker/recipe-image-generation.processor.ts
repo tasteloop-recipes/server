@@ -162,7 +162,7 @@ export class RecipeImageGenerationProcessor extends WorkerHost {
       miscNutritionFacts: recipe.miscNutritionFacts.map((fact) => ({
         label: fact.label,
         value: Number(fact.value),
-        unit: fact.unit ?? undefined,
+        unit: fact.unit ?? null,
       })),
     };
   }

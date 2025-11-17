@@ -70,7 +70,7 @@ export class RecipeModel {
   servingSize!: string;
 
   @Field(() => [RecipeIngredientModel])
-  ingredients!: RecipeIngredientModel[];
+  ingredients?: RecipeIngredientModel[];
 
   @Field(() => [MiscNutritionFactModel])
   miscNutritionFacts?: MiscNutritionFactModel[];

@@ -15,6 +15,7 @@ describe('RecipesService', () => {
   let findUniqueMock: jest.Mock = jest.fn();
   let findRecipeImageMock: jest.Mock = jest.fn();
   let findMiscNutritionFactMock: jest.Mock = jest.fn();
+  let findRecipeIngredientMock: jest.Mock = jest.fn();
 
   const getService = (): RecipesService => {
     if (!service) {
@@ -51,6 +52,7 @@ describe('RecipesService', () => {
     findUniqueMock = jest.fn();
     findRecipeImageMock = jest.fn();
     findMiscNutritionFactMock = jest.fn();
+    findRecipeIngredientMock = jest.fn();
 
     moduleRef = await Test.createTestingModule({
       providers: [
@@ -69,6 +71,9 @@ describe('RecipesService', () => {
             },
             miscNutritionFact: {
               findMany: findMiscNutritionFactMock,
+            },
+            recipeIngredient: {
+              findMany: findRecipeIngredientMock,
             },
           },
         },
@@ -170,6 +175,48 @@ describe('RecipesService', () => {
 
       expect(result).toEqual(image);
       expect(findRecipeImageMock).toHaveBeenCalledWith({
+        where: { recipeId },
+      });
+    });
+  });
+
+  describe('findIngredients', () => {
+    it('should return ingredients for recipe id', async () => {
+      const recipeId = 'recipe-1';
+      const ingredients = [
+        {
+          id: 'ing-1',
+          recipeId,
+          name: 'Flour',
+          quantity: 2,
+          unit: 'cups',
+        },
+        {
+          id: 'ing-2',
+          recipeId,
+          name: 'Sugar',
+          quantity: 1,
+          unit: 'cup',
+        },
+      ];
+      findRecipeIngredientMock.mockResolvedValueOnce(ingredients);
+
+      const result = await getService().findIngredients(recipeId);
+
+      expect(result).toEqual(ingredients);
+      expect(findRecipeIngredientMock).toHaveBeenCalledWith({
+        where: { recipeId },
+      });
+    });
+
+    it('should return empty array when no ingredients exist', async () => {
+      const recipeId = 'recipe-1';
+      findRecipeIngredientMock.mockResolvedValueOnce([]);
+
+      const result = await getService().findIngredients(recipeId);
+
+      expect(result).toEqual([]);
+      expect(findRecipeIngredientMock).toHaveBeenCalledWith({
         where: { recipeId },
       });
     });
