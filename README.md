@@ -42,7 +42,7 @@ Both commands watch for file changes and reload automatically.
 
 ## Docker workflow
 
-The repository ships with a `docker-compose.yml` that provisions PostgreSQL, Valkey, the API server, and the queue worker.
+The repository ships with a `docker-compose.yml` that provisions PostgreSQL, Valkey, MinIO object storage, the API server, and the queue worker.
 
 ```bash
 docker compose up --build
@@ -51,8 +51,34 @@ docker compose up --build
 - The `app` service hosts the GraphQL API at `http://localhost:3000`.
 - The `queue` service runs the background worker via `npm run start:queue:dev`.
 - The `valkey` service provides a Redis-compatible queue backend.
+- The `object-storage` service provides a local MinIO instance for S3-compatible storage.
+
+The application container will install dependencies, generate the Prisma client, run pending migrations, and then start in watch mode. A healthy Postgres instance is required before the app starts.
 
 You can override `REDIS_*` variables in `.env` to point to a managed Valkey instance on DigitalOcean.
+
+## Object storage configuration
+
+The AI image pipeline saves generated images to an S3-compatible bucket. The service is configured to work with [DigitalOcean Spaces](https://docs.digitalocean.com/reference/api/#spaces) in production and ships with a local [MinIO](https://min.io/) stack for development.
+
+### Required environment variables
+
+Configure the following variables in your `.env` file (see `.env.example` for defaults):
+
+- `SPACES_ENDPOINT` – The S3 endpoint (e.g. `https://nyc3.digitaloceanspaces.com` in production or `http://localhost:9000` for the local stack).
+- `SPACES_REGION` – Region/cluster for your space (e.g. `nyc3`).
+- `SPACES_BUCKET` – The bucket/space name that will hold generated recipe images.
+- `SPACES_ACCESS_KEY_ID` and `SPACES_SECRET_ACCESS_KEY` – API credentials that can read/write the bucket.
+- `SPACES_FORCE_PATH_STYLE` – Use `false` for DigitalOcean Spaces and `true` when working with the bundled MinIO server.
+- `SPACES_OBJECT_ACL` – Optional ACL to apply when uploading objects (defaults to `public-read`).
+
+### Local development
+
+Running `docker compose up` launches an additional `object-storage` service (MinIO) plus a short-lived setup container that creates the configured bucket and marks it as publicly readable. The MinIO UI is available at [http://localhost:9001](http://localhost:9001) using the access and secret keys defined above.
+
+The application container automatically points to the in-cluster endpoint (`http://object-storage:9000`) and forces path-style URLs so you can test uploads locally without extra configuration.
+
+To work against DigitalOcean Spaces instead, update the environment variables with your production credentials, disable `SPACES_FORCE_PATH_STYLE`, and ensure the bucket exists with the desired permissions.
 
 ## Database helpers
 
