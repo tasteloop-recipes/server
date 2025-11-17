@@ -1,7 +1,9 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
+import { InjectQueue } from '@nestjs/bullmq';
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { Allergy, RecipeStatus, type Prisma } from '@prisma/client';
 import type { Job } from 'bullmq';
+import type { Queue } from 'bullmq';
 import { AiService } from '../ai/ai.service';
 import { recipeResponseFormat } from '../ai/ai.types';
 import { PrismaService } from '../prisma/prisma.service';
@@ -29,6 +31,8 @@ export class RecipeGenerationProcessor extends WorkerHost {
   constructor(
     private readonly prisma: PrismaService,
     private readonly aiService: AiService,
+    @InjectQueue('recipe-image-generation')
+    private readonly recipeImageQueue: Queue<{ workerId: string }>,
   ) {
     super();
   }
@@ -135,6 +139,8 @@ export class RecipeGenerationProcessor extends WorkerHost {
         where: { id: worker.id },
         data: { status: RecipeStatus.RECIPE_CREATED },
       });
+
+      await this.enqueueImageGenerationJob(worker.id);
     } catch (error: unknown) {
       if (error instanceof BadRequestException) {
         await this.prisma.recipeWorker.update({
@@ -175,5 +181,36 @@ export class RecipeGenerationProcessor extends WorkerHost {
     }
 
     return [...normalized];
+  }
+
+  private async enqueueImageGenerationJob(workerId: string): Promise<void> {
+    try {
+      await this.recipeImageQueue.add(
+        'generate-recipe-image',
+        { workerId },
+        {
+          attempts: 3,
+          backoff: {
+            type: 'exponential',
+            delay: 1000,
+          },
+          removeOnComplete: true,
+          removeOnFail: false,
+        },
+      );
+    } catch (error: unknown) {
+      await this.prisma.recipeWorker.update({
+        where: { id: workerId },
+        data: { status: RecipeStatus.ERROR },
+      });
+
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      this.logger.error(
+        `Failed to enqueue image generation for worker ${workerId}: ${errorMessage}`,
+      );
+
+      throw error;
+    }
   }
 }
