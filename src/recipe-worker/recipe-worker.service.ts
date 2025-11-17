@@ -60,7 +60,7 @@ export class RecipeWorkerService {
     return worker;
   }
 
-  async findMany(
+  async findManyWithFilters(
     limit = 50,
     statuses?: RecipeStatus[],
   ): Promise<RecipeWorker[]> {
