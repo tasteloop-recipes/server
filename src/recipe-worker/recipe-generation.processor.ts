@@ -183,7 +183,7 @@ export class RecipeGenerationProcessor extends WorkerHost {
     const normalized = new Set<Allergy>();
 
     for (const value of values) {
-      const formatted = value.trim().toUpperCase().replace(/\s+/g, '_');
+      const formatted = this.normalizeAllergyValue(value);
       const match = allergyLookup.get(formatted);
 
       if (match) {
@@ -192,5 +192,12 @@ export class RecipeGenerationProcessor extends WorkerHost {
     }
 
     return [...normalized];
+  }
+
+  /**
+   * Normalizes an allergy string to a consistent format (trim, uppercase, underscores for whitespace).
+   */
+  private normalizeAllergyValue(value: string): string {
+    return value.trim().toUpperCase().replace(/\s+/g, '_');
   }
 }
