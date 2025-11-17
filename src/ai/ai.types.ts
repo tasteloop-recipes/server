@@ -80,7 +80,7 @@ export const recipeDataSchema = z
     description: z.string().min(1, 'Recipe description cannot be empty'),
     difficulty: recipeDifficultyEnum,
     mealTypes: z.array(mealTypeEnum).min(1),
-    countriesOfOrigin: z.array(z.string()),
+    countriesOfOrigin: z.array(z.string().min(1, 'Country name cannot be empty')).min(1, 'There must be at least one country of origin'),
     diets: z.array(dietEnum),
     allergies: z.array(z.string().min(1, 'Allergy name cannot be empty')),
     proteinType: z.array(proteinTypeEnum),
