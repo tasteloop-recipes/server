@@ -115,9 +115,10 @@ describe('RecipesService', () => {
       expect(result.meta.totalPages).toBe(3);
     });
 
+    const TOTAL_RECIPES_COUNT = 20;
     it('should calculate skip correctly for pagination', async () => {
       const mockRecipes = [mockRecipe];
-      transactionMock.mockResolvedValueOnce([mockRecipes, 20]);
+      transactionMock.mockResolvedValueOnce([mockRecipes, TOTAL_RECIPES_COUNT]);
       findManyMock.mockResolvedValueOnce(mockRecipes);
 
       await getService().findAll(3, 10);
