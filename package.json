@@ -100,7 +100,6 @@
     ],
     "coverageDirectory": "../coverage",
     "testEnvironment": "node",
-    "watchman": false,
     "coverageThreshold": {
       "global": {
         "branches": 20,
