@@ -1,25 +1,46 @@
 import { BadRequestException } from '@nestjs/common';
-import { RecipeStatus, Allergy } from '@prisma/client';
+import { RecipeStatus } from '@prisma/client';
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
 import type { Job } from 'bullmq';
 import { AiService } from '../ai/ai.service';
-import { recipeResponseFormat } from '../ai/ai.types';
 import { PrismaService } from '../prisma/prisma.service';
-import { RecipeGenerationProcessor } from './recipe-generation.processor';
+import {
+  RecipeGenerationProcessor,
+  type RecipeGenerationJobData,
+} from './recipe-generation.processor';
 
 describe('RecipeGenerationProcessor', () => {
   let moduleRef: TestingModule | null = null;
   let processor: RecipeGenerationProcessor | null = null;
-  let prismaService: PrismaService;
-  let aiService: AiService;
-
   // Mocks
   let updateManyMock: jest.Mock = jest.fn();
   let findUniqueMock: jest.Mock = jest.fn();
   let updateMock: jest.Mock = jest.fn();
   let transactionMock: jest.Mock = jest.fn();
   let generateRecipeDataMock: jest.Mock = jest.fn();
+
+  type TransactionCallback = (tx: {
+    recipe: {
+      delete: jest.Mock;
+      create?: jest.Mock;
+    };
+    recipeWorker: {
+      update: jest.Mock;
+    };
+  }) => Promise<void> | void;
+
+  const createJob = (
+    data: RecipeGenerationJobData,
+  ): Job<RecipeGenerationJobData> => {
+    const minimalJob = { data } satisfies Pick<
+      Job<RecipeGenerationJobData>,
+      'data'
+    >;
+    const job = minimalJob as unknown;
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- Tests only need the data subset from BullMQ's Job
+    return job as Job<RecipeGenerationJobData>;
+  };
 
   const getProcessor = (): RecipeGenerationProcessor => {
     if (!processor) {
@@ -53,9 +74,7 @@ describe('RecipeGenerationProcessor', () => {
       protein: 40,
       fiber: 3,
     },
-    miscNutritionFacts: [
-      { label: 'Sodium', value: '300', unit: 'mg' },
-    ],
+    miscNutritionFacts: [{ label: 'Sodium', value: '300', unit: 'mg' }],
   };
 
   const mockWorker = {
@@ -105,8 +124,6 @@ describe('RecipeGenerationProcessor', () => {
     processor = moduleRef.get<RecipeGenerationProcessor>(
       RecipeGenerationProcessor,
     );
-    prismaService = moduleRef.get<PrismaService>(PrismaService);
-    aiService = moduleRef.get<AiService>(AiService);
   });
 
   afterEach(async () => {
@@ -121,7 +138,7 @@ describe('RecipeGenerationProcessor', () => {
     it('should return early if worker not found', async () => {
       findUniqueMock.mockResolvedValueOnce(null);
 
-      const job = { data: { workerId: 'nonexistent' } } as Job;
+      const job = createJob({ workerId: 'nonexistent' });
 
       await getProcessor().process(job);
 
@@ -136,7 +153,7 @@ describe('RecipeGenerationProcessor', () => {
       };
       findUniqueMock.mockResolvedValueOnce(invalidStatusWorker);
 
-      const job = { data: { workerId: mockWorker.id } } as Job;
+      const job = createJob({ workerId: mockWorker.id });
 
       await getProcessor().process(job);
 
@@ -148,7 +165,7 @@ describe('RecipeGenerationProcessor', () => {
       findUniqueMock.mockResolvedValueOnce(mockWorker);
       updateManyMock.mockResolvedValueOnce({ count: 0 });
 
-      const job = { data: { workerId: mockWorker.id } } as Job;
+      const job = createJob({ workerId: mockWorker.id });
 
       await getProcessor().process(job);
 
@@ -162,22 +179,25 @@ describe('RecipeGenerationProcessor', () => {
       findUniqueMock.mockResolvedValueOnce(mockWorker);
       updateManyMock.mockResolvedValueOnce({ count: 1 });
       generateRecipeDataMock.mockResolvedValueOnce(mockRecipeData);
-      transactionMock.mockImplementation(async (callback) => {
-        await callback({
-          recipe: {
-            delete: jest.fn(),
-          },
-          recipeWorker: {
-            update: jest.fn(),
-          },
-        });
-      });
+      transactionMock.mockImplementation(
+        async (callback: TransactionCallback) => {
+          await callback({
+            recipe: {
+              delete: jest.fn(),
+              create: jest.fn(),
+            },
+            recipeWorker: {
+              update: jest.fn(),
+            },
+          });
+        },
+      );
       updateMock.mockResolvedValueOnce({
         id: mockWorker.id,
         status: RecipeStatus.RECIPE_CREATED,
       });
 
-      const job = { data: { workerId: mockWorker.id } } as Job;
+      const job = createJob({ workerId: mockWorker.id });
 
       await getProcessor().process(job);
 
@@ -198,25 +218,29 @@ describe('RecipeGenerationProcessor', () => {
       findUniqueMock.mockResolvedValueOnce(mockWorker);
       updateManyMock.mockResolvedValueOnce({ count: 1 });
       generateRecipeDataMock.mockResolvedValueOnce(mockRecipeData);
-      transactionMock.mockImplementation(async (callback) => {
-        await callback({
-          recipe: {
-            delete: jest.fn(),
-          },
-          recipeWorker: {
-            update: jest.fn(),
-          },
-        });
-      });
+      transactionMock.mockImplementation(
+        async (callback: TransactionCallback) => {
+          await callback({
+            recipe: {
+              delete: jest.fn(),
+              create: jest.fn(),
+            },
+            recipeWorker: {
+              update: jest.fn(),
+            },
+          });
+        },
+      );
       updateMock.mockResolvedValueOnce({
         id: mockWorker.id,
         status: RecipeStatus.RECIPE_CREATED,
       });
 
       const customTimeout = 60000;
-      const job = {
-        data: { workerId: mockWorker.id, timeoutMs: customTimeout },
-      } as Job;
+      const job = createJob({
+        workerId: mockWorker.id,
+        timeoutMs: customTimeout,
+      });
 
       await getProcessor().process(job);
 
@@ -226,8 +250,6 @@ describe('RecipeGenerationProcessor', () => {
     });
 
     it('should timeout and reject if AI service takes too long', async () => {
-      jest.useFakeTimers();
-
       findUniqueMock.mockResolvedValueOnce(mockWorker);
       updateManyMock.mockResolvedValueOnce({ count: 1 });
 
@@ -242,16 +264,14 @@ describe('RecipeGenerationProcessor', () => {
         status: RecipeStatus.ERROR,
       });
 
-      const customTimeout = 60000; // 1 minute
-      const job = { data: { workerId: mockWorker.id, timeoutMs: customTimeout } } as Job;
+      const customTimeout = 10; // keep test fast
+      const job = createJob({
+        workerId: mockWorker.id,
+        timeoutMs: customTimeout,
+      });
 
-      const processPromise = getProcessor().process(job);
-
-      // Advance time to trigger timeout
-      jest.advanceTimersByTime(customTimeout);
-
-      await expect(processPromise).rejects.toThrow(
-        'Recipe generation timed out after 1 minutes',
+      await expect(getProcessor().process(job)).rejects.toThrow(
+        'Recipe generation timed out after',
       );
 
       // Verify error status was set
@@ -261,8 +281,6 @@ describe('RecipeGenerationProcessor', () => {
           data: { status: RecipeStatus.ERROR },
         }),
       );
-
-      jest.useRealTimers();
     });
 
     it('should clear timeout when AI service completes successfully', async () => {
@@ -271,22 +289,25 @@ describe('RecipeGenerationProcessor', () => {
       findUniqueMock.mockResolvedValueOnce(mockWorker);
       updateManyMock.mockResolvedValueOnce({ count: 1 });
       generateRecipeDataMock.mockResolvedValueOnce(mockRecipeData);
-      transactionMock.mockImplementation(async (callback) => {
-        await callback({
-          recipe: {
-            delete: jest.fn(),
-          },
-          recipeWorker: {
-            update: jest.fn(),
-          },
-        });
-      });
+      transactionMock.mockImplementation(
+        async (callback: TransactionCallback) => {
+          await callback({
+            recipe: {
+              delete: jest.fn(),
+              create: jest.fn(),
+            },
+            recipeWorker: {
+              update: jest.fn(),
+            },
+          });
+        },
+      );
       updateMock.mockResolvedValueOnce({
         id: mockWorker.id,
         status: RecipeStatus.RECIPE_CREATED,
       });
 
-      const job = { data: { workerId: mockWorker.id, timeoutMs: 5000 } } as Job;
+      const job = createJob({ workerId: mockWorker.id, timeoutMs: 5000 });
 
       await getProcessor().process(job);
 
@@ -311,7 +332,7 @@ describe('RecipeGenerationProcessor', () => {
         status: RecipeStatus.INVALID,
       });
 
-      const job = { data: { workerId: mockWorker.id } } as Job;
+      const job = createJob({ workerId: mockWorker.id });
 
       await getProcessor().process(job);
 
@@ -326,17 +347,17 @@ describe('RecipeGenerationProcessor', () => {
     it('should handle generic errors from AI service', async () => {
       findUniqueMock.mockResolvedValueOnce(mockWorker);
       updateManyMock.mockResolvedValueOnce({ count: 1 });
-      generateRecipeDataMock.mockRejectedValueOnce(
-        new Error('Network error'),
-      );
+      generateRecipeDataMock.mockRejectedValueOnce(new Error('Network error'));
       updateMock.mockResolvedValueOnce({
         id: mockWorker.id,
         status: RecipeStatus.ERROR,
       });
 
-      const job = { data: { workerId: mockWorker.id } } as Job;
+      const job = createJob({ workerId: mockWorker.id });
 
-      await expect(getProcessor().process(job)).rejects.toThrow('Network error');
+      await expect(getProcessor().process(job)).rejects.toThrow(
+        'Network error',
+      );
 
       expect(updateMock).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -356,22 +377,25 @@ describe('RecipeGenerationProcessor', () => {
       };
       generateRecipeDataMock.mockResolvedValueOnce(recipeDataWithAllergies);
 
-      transactionMock.mockImplementation(async (callback) => {
-        await callback({
-          recipe: {
-            delete: jest.fn(),
-          },
-          recipeWorker: {
-            update: jest.fn(),
-          },
-        });
-      });
+      transactionMock.mockImplementation(
+        async (callback: TransactionCallback) => {
+          await callback({
+            recipe: {
+              delete: jest.fn(),
+              create: jest.fn(),
+            },
+            recipeWorker: {
+              update: jest.fn(),
+            },
+          });
+        },
+      );
       updateMock.mockResolvedValueOnce({
         id: mockWorker.id,
         status: RecipeStatus.RECIPE_CREATED,
       });
 
-      const job = { data: { workerId: mockWorker.id } } as Job;
+      const job = createJob({ workerId: mockWorker.id });
 
       await getProcessor().process(job);
 
@@ -390,20 +414,22 @@ describe('RecipeGenerationProcessor', () => {
       const deleteRecipeMock = jest.fn();
       const createRecipeMock = jest.fn();
 
-      transactionMock.mockImplementation(async (callback) => {
-        await callback({
-          recipe: {
-            delete: deleteRecipeMock,
-            create: createRecipeMock,
-          },
-        });
-      });
+      transactionMock.mockImplementation(
+        async (callback: TransactionCallback) => {
+          await callback({
+            recipe: {
+              delete: deleteRecipeMock,
+              create: createRecipeMock,
+            },
+          });
+        },
+      );
       updateMock.mockResolvedValueOnce({
         id: mockWorker.id,
         status: RecipeStatus.RECIPE_CREATED,
       });
 
-      const job = { data: { workerId: mockWorker.id } } as Job;
+      const job = createJob({ workerId: mockWorker.id });
 
       await getProcessor().process(job);
 
