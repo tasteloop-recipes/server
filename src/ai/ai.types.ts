@@ -21,7 +21,7 @@ const miscNutritionFactSchema = z
   .object({
     label: z.string().min(1, 'Nutrition fact label cannot be empty'),
     value: z.number().nonnegative(),
-    unit: z.string().min(1).nullable(),
+    unit: z.union([z.string().min(1), z.null()]),
   })
   .describe(
     'Describes a miscellaneous nutrition fact with label, value, and optional unit. These are additional nutrition facts that do not fall under calories, carbs, fat, protein, or fiber.',
@@ -91,9 +91,9 @@ export const recipeDataSchema = z
     preparation: z
       .array(z.string().min(1, 'Preparation step cannot be empty'))
       .min(1),
-    instructions: z.array(
-      z.string().min(1, 'Instruction step cannot be empty'),
-    ),
+    instructions: z
+      .array(z.string().min(1, 'Instruction step cannot be empty'))
+      .min(1, 'There must be at least one instruction step'),
     servingSize: z.string().min(1, 'Serving size cannot be empty'),
     ingredients: z.array(ingredientSchema).min(1),
     nutritionFacts: nutritionFactSchema,
