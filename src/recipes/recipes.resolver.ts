@@ -1,4 +1,5 @@
 import { Args, Parent, Query, ResolveField, Resolver } from '@nestjs/graphql';
+import type { Recipe } from '@prisma/client';
 import { RecipesPage } from './models/recipes-page.model';
 import { RecipeModel } from './models/recipe.model';
 import { RecipesService } from './recipes.service';
@@ -22,7 +23,7 @@ export class RecipesResolver {
   })
   async recipe(
     @Args('id', { type: () => String }) id: string,
-  ): Promise<RecipeModel> {
+  ): Promise<Recipe> {
     return this.recipesService.findOne(id);
   }
 
@@ -31,16 +32,21 @@ export class RecipesResolver {
       'Retrieve the miscellaneous nutrition facts associated with the recipe',
   })
   async miscNutritionFacts(
-    @Parent() recipe: RecipeModel,
+    @Parent() recipe: Recipe,
   ): Promise<MiscNutritionFactModel[]> {
-    return this.recipesService.findMiscNutritionFacts(recipe.id);
+    const facts = await this.recipesService.findMiscNutritionFacts(recipe.id);
+
+    return facts.map<MiscNutritionFactModel>((fact) => ({
+      ...fact,
+      value: fact.value.toNumber(),
+    }));
   }
 
   @ResolveField(() => RecipeImageModel, {
     nullable: true,
     description: 'Retrieve the image associated with the recipe',
   })
-  async image(@Parent() recipe: RecipeModel): Promise<RecipeImageModel | null> {
+  async image(@Parent() recipe: Recipe): Promise<RecipeImageModel | null> {
     return this.recipesService.findImage(recipe.id);
   }
 }

@@ -14,6 +14,6 @@ export class MiscNutritionFactModel {
   @Field()
   value!: number;
 
-  @Field({ nullable: true })
+  @Field(() => String, { nullable: true })
   unit?: string | null;
 }
