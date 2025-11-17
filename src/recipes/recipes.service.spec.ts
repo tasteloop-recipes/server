@@ -4,6 +4,7 @@ import { MealType, RecipeDifficulty } from '@prisma/client';
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
 import { PrismaService } from '../prisma/prisma.service';
+import { AiService } from '../ai/ai.service';
 import { RecipesService } from './recipes.service';
 
 describe('RecipesService', () => {
@@ -80,6 +81,20 @@ describe('RecipesService', () => {
             recipeIngredient: {
               findMany: findRecipeIngredientMock,
             },
+          },
+        },
+        {
+          provide: AiService,
+          useValue: {
+            generateRecipe: jest.fn(),
+            generateRecipeImage: jest.fn(),
+          },
+        },
+        {
+          provide: 'BullQueue_recipe-image-generation',
+          useValue: {
+            add: jest.fn(),
+            process: jest.fn(),
           },
         },
       ],

@@ -1,4 +1,11 @@
-import { Args, Parent, Query, ResolveField, Resolver } from '@nestjs/graphql';
+import {
+  Args,
+  Mutation,
+  Parent,
+  Query,
+  ResolveField,
+  Resolver,
+} from '@nestjs/graphql';
 import type { Recipe, MiscNutritionFact } from '@prisma/client';
 import { RecipesPage } from './models/recipes-page.model';
 import { RecipeModel } from './models/recipe.model';
@@ -8,6 +15,7 @@ import { RecipeImageModel } from './models/recipe-image.model';
 import { RecipeIngredientModel } from './models/recipe-ingredient.model';
 import { RecipeWorkerModel } from '../recipe-worker/models/recipe-worker.model';
 import { MiscNutritionFactModel } from './models/misc-nutrition-fact.model';
+import { ModifyRecipeResultDto } from './dto/modify-recipe-result.dto';
 
 @Resolver(() => RecipeModel)
 export class RecipesResolver {
@@ -27,6 +35,17 @@ export class RecipesResolver {
     @Args('id', { type: () => String }) id: string,
   ): Promise<RecipeModel> {
     return this.recipesService.findOne(id);
+  }
+
+  @Mutation(() => ModifyRecipeResultDto, {
+    name: 'modifyRecipe',
+    description: 'Modify an existing recipe using an AI prompt',
+  })
+  async modifyRecipe(
+    @Args('recipeId', { type: () => String }) recipeId: string,
+    @Args('prompt', { type: () => String }) prompt: string,
+  ): Promise<ModifyRecipeResultDto> {
+    return this.recipesService.modifyRecipe(recipeId, prompt);
   }
 
   @ResolveField(() => [RecipeIngredientModel], {

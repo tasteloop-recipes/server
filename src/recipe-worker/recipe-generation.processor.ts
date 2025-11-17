@@ -1,12 +1,13 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { InjectQueue } from '@nestjs/bullmq';
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
-import { Allergy, RecipeStatus, type Prisma } from '@prisma/client';
+import { RecipeStatus, type Prisma } from '@prisma/client';
 import type { Job } from 'bullmq';
 import type { Queue } from 'bullmq';
 import { AiService } from '../ai/ai.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { createTimeoutGuard } from '../common/timeout.util';
+import { normalizeAllergies } from '../common/allergy.util';
 
 export interface RecipeGenerationJobData {
   workerId: string;
@@ -21,10 +22,6 @@ const ALLOWED_STATUSES = new Set<RecipeStatus>([
 
 // Default timeout for recipe generation jobs (5 minutes, in milliseconds)
 const DEFAULT_TIMEOUT_MS = 300000;
-
-const allergyLookup = new Map<string, Allergy>(
-  Object.values(Allergy).map((value) => [value.toUpperCase(), value]),
-);
 
 @Injectable()
 @Processor('recipe-generation')
@@ -107,7 +104,7 @@ export class RecipeGenerationProcessor extends WorkerHost {
           mealTypes: recipeData.mealTypes,
           countriesOfOrigin: recipeData.countriesOfOrigin,
           diets: recipeData.diets,
-          allergies: this.normalizeAllergies(recipeData.allergies),
+          allergies: normalizeAllergies(recipeData.allergies),
           proteinType: recipeData.proteinType,
           prepTimeMinutes: recipeData.prepTimeMinutes,
           cookTimeMinutes: recipeData.cookTimeMinutes,
@@ -175,28 +172,6 @@ export class RecipeGenerationProcessor extends WorkerHost {
     } finally {
       timeoutGuard.cancel();
     }
-  }
-
-  private normalizeAllergies(values: string[]): Allergy[] {
-    const normalized = new Set<Allergy>();
-
-    for (const value of values) {
-      const formatted = this.normalizeAllergyValue(value);
-      const match = allergyLookup.get(formatted);
-
-      if (match) {
-        normalized.add(match);
-      }
-    }
-
-    return [...normalized];
-  }
-
-  /**
-   * Normalizes an allergy string to a consistent format (trim, uppercase, underscores for whitespace).
-   */
-  private normalizeAllergyValue(value: string): string {
-    return value.trim().toUpperCase().replace(/\s+/g, '_');
   }
 
   private async enqueueImageGenerationJob(workerId: string): Promise<void> {
