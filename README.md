@@ -28,8 +28,9 @@ flowchart LR
 - `src/app.module.ts` wires the GraphQL runtime, Prisma client, throttling guard, BullMQ connection, and the feature modules (`RecipesModule`, `RecipeWorkerModule`, `AiModule`).
 - `AiService` (in `src/ai`) owns all OpenAI interactions: prompt moderation, structured recipe generation (`recipe-generation` format), and image uploads to object storage.
 - `RecipeWorkerModule` exposes the GraphQL mutations/queries for `RecipeWorker` entities and enqueues BullMQ jobs that run inside the dedicated `queue.worker.ts` process.
-- `RecipeGenerationProcessor` and `RecipeImageGenerationProcessor` (in `src/recipe-worker`) consume jobs, orchestrate AI calls, and persist normalized data through the Prisma service.
-- `RecipesModule` exposes read-only GraphQL queries for recipes, ingredients, nutrition facts, linked workers, and uploaded images.
+- `RecipeGenerationProcessor` and `RecipeImageGenerationProcessor` (in `src/recipe-worker`) consume jobs, orchestrate AI calls, persist normalized data through the Prisma service, and emit timeline entries through the recipe log service.
+- `RecipesModule` exposes read-only GraphQL queries for recipes, ingredients, nutrition facts, linked workers, uploaded images, and feeds modification requests into the logging service.
+- `RecipeLogsModule` centralizes audit-style events (recipe creation, image generation, modification requests/completions) and exposes the `recipeLogs` GraphQL query so clients can show a timeline for each recipe.
 
 ## Codebase tour
 
@@ -41,6 +42,7 @@ flowchart LR
 | `src/recipes` | Query resolvers, DTOs, and models that expose paginated recipe data along with related ingredients, images, and nutrition facts. |
 | `src/storage/object-storage.provider.ts` | Factory that configures an S3 client targeted at DigitalOcean Spaces or the bundled MinIO stack. |
 | `src/queue` | BullMQ module configuration and `queue.worker.ts`, which spins up an application context dedicated to processing background jobs. |
+| `src/recipe-logs` | GraphQL models + resolver/service used to record `RecipeLog` entries and fetch the log history for a recipe. |
 | `prisma/` | Prisma schema that defines recipe, worker, and nutrition models plus generated client artifacts. |
 
 ## Domain models & queue relationships
@@ -71,6 +73,7 @@ erDiagram
 - Use the `modifyRecipe` GraphQL mutation to apply ad-hoc changes to an existing recipe with an updated AI prompt.
 - The mutation accepts the recipe identifier and a prompt, temporarily moves the worker into the `PENDING_MODIFICATIONS` status, calls `AiService.generateRecipeData`, persists the new recipe tree, and re-queues image generation so thumbnails stay in sync.
 - The mutation response is a human-friendly `descriptionOfUpdates` string supplied by the AI response so clients can display a summary of what changed.
+- The Recipe Logs resolver exposes `recipeLogs(recipeId: String!)` so UIs can render a chronological feed of creation, modification requests, modifications, and image generations, using the messages captured from each AI call (e.g., `descriptionOfUpdates` or generated image URLs).
 
 Example GraphQL operation:
 
