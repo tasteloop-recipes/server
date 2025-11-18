@@ -30,6 +30,13 @@ import { RecipeLogsModule } from './recipe-logs/recipe-logs.module';
         res,
       }),
     }),
+    // Register the named throttler buckets that the @Throttle decorators use.
+    // See https://github.com/nestjs/throttler#multiple-throttler-definitions for details.
+    // - The default bucket enforces the per-IP query ceilings.
+    // - The queryGlobal bucket applies a constant key via generateKey to enforce
+    //   a shared global query allowance on top of the per-IP budget.
+    // - The mutation buckets mirror the query behaviour but with much stricter
+    //   limits because of the AI-related costs.
     ThrottlerModule.forRoot([
       {
         ttl: 60_000,
