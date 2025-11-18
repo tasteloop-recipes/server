@@ -41,7 +41,7 @@ export class AiService {
     try {
       // Generate recipe data with moderation and relevance validation
       const response = await this.openai.responses.parse({
-        model: 'gpt-5-mini',
+        model: 'gpt-5.1-mini',
         input: sanitizedPrompt,
         instructions:
           'You are a helpful assistant that provides detailed cooking recipes based on user prompts. Before creating a recipe, you must determine if the prompt is safe, complies with moderation policies, and is clearly about food or cooking. If it violates policies or is not recipe-related, respond with isValid set to false and recipeData as null. Only when the prompt is safe and recipe-related should you set isValid to true and populate recipeData with the detailed recipe. All the instructions and details should be clear, concise, and easy to follow.',
