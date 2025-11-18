@@ -206,7 +206,7 @@ describe('RecipeGenerationProcessor', () => {
             id: 'recipe-123',
             authorId: 'user-1',
           });
-          await callback({
+          return callback({
             recipe: {
               delete: jest.fn(),
               create: recipeCreate,
@@ -253,7 +253,7 @@ describe('RecipeGenerationProcessor', () => {
       generateRecipeDataMock.mockResolvedValueOnce(mockRecipeData);
       transactionMock.mockImplementation(
         async (callback: TransactionCallback) => {
-          await callback({
+          return callback({
             recipe: {
               delete: jest.fn(),
               create: jest.fn().mockResolvedValue({
@@ -327,7 +327,7 @@ describe('RecipeGenerationProcessor', () => {
       generateRecipeDataMock.mockResolvedValueOnce(mockRecipeData);
       transactionMock.mockImplementation(
         async (callback: TransactionCallback) => {
-          await callback({
+          return callback({
             recipe: {
               delete: jest.fn(),
               create: jest.fn().mockResolvedValue({
@@ -418,7 +418,7 @@ describe('RecipeGenerationProcessor', () => {
 
       transactionMock.mockImplementation(
         async (callback: TransactionCallback) => {
-          await callback({
+          return callback({
             recipe: {
               delete: jest.fn(),
               create: jest.fn().mockResolvedValue({
@@ -461,7 +461,7 @@ describe('RecipeGenerationProcessor', () => {
 
       transactionMock.mockImplementation(
         async (callback: TransactionCallback) => {
-          await callback({
+          return callback({
             recipe: {
               delete: deleteRecipeMock,
               create: createRecipeMock,
@@ -495,7 +495,7 @@ describe('RecipeGenerationProcessor', () => {
       const deleteRecipeMock = jest.fn();
       transactionMock.mockImplementation(
         async (callback: TransactionCallback) => {
-          await callback({
+          return callback({
             recipe: {
               delete: deleteRecipeMock,
               create: jest.fn().mockResolvedValue({
