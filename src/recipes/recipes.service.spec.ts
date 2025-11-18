@@ -6,6 +6,7 @@ import { Test } from '@nestjs/testing';
 import { PrismaService } from '../prisma/prisma.service';
 import { AiService } from '../ai/ai.service';
 import { RecipesService } from './recipes.service';
+import { RecipeLogsService } from '../recipe-logs/recipe-logs.service';
 
 describe('RecipesService', () => {
   let moduleRef: TestingModule | null = null;
@@ -18,6 +19,7 @@ describe('RecipesService', () => {
   let findUniqueWorkerMock: jest.Mock = jest.fn();
   let findMiscNutritionFactMock: jest.Mock = jest.fn();
   let findRecipeIngredientMock: jest.Mock = jest.fn();
+  let createLogMock: jest.Mock = jest.fn();
 
   const getService = (): RecipesService => {
     if (!service) {
@@ -56,6 +58,7 @@ describe('RecipesService', () => {
     findUniqueWorkerMock = jest.fn();
     findMiscNutritionFactMock = jest.fn();
     findRecipeIngredientMock = jest.fn();
+    createLogMock = jest.fn();
 
     moduleRef = await Test.createTestingModule({
       providers: [
@@ -88,6 +91,12 @@ describe('RecipesService', () => {
           useValue: {
             generateRecipe: jest.fn(),
             generateRecipeImage: jest.fn(),
+          },
+        },
+        {
+          provide: RecipeLogsService,
+          useValue: {
+            createLog: createLogMock,
           },
         },
         {

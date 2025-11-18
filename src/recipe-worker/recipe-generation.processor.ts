@@ -1,13 +1,14 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { InjectQueue } from '@nestjs/bullmq';
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
-import { RecipeStatus, type Prisma } from '@prisma/client';
+import { RecipeLogType, RecipeStatus, type Prisma } from '@prisma/client';
 import type { Job } from 'bullmq';
 import type { Queue } from 'bullmq';
 import { AiService } from '../ai/ai.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { createTimeoutGuard } from '../common/timeout.util';
 import { normalizeAllergies } from '../common/allergy.util';
+import { RecipeLogsService } from '../recipe-logs/recipe-logs.service';
 
 export interface RecipeGenerationJobData {
   workerId: string;
@@ -33,6 +34,7 @@ export class RecipeGenerationProcessor extends WorkerHost {
     private readonly aiService: AiService,
     @InjectQueue('recipe-image-generation')
     private readonly recipeImageQueue: Queue<{ workerId: string }>,
+    private readonly recipeLogsService: RecipeLogsService,
   ) {
     super();
   }
@@ -88,7 +90,7 @@ export class RecipeGenerationProcessor extends WorkerHost {
         timeoutGuard.promise,
       ]);
 
-      await this.prisma.$transaction(async (tx) => {
+      const createdRecipe = await this.prisma.$transaction(async (tx) => {
         const existingRecipeId = worker.recipe?.id;
         if (existingRecipeId != null) {
           await tx.recipe.delete({ where: { id: existingRecipeId } });
@@ -136,7 +138,18 @@ export class RecipeGenerationProcessor extends WorkerHost {
           },
         };
 
-        await tx.recipe.create({ data: recipeCreateInput });
+        return tx.recipe.create({
+          data: recipeCreateInput,
+        });
+      });
+
+      await this.recipeLogsService.createLog({
+        recipeId: createdRecipe.id,
+        ...(createdRecipe.authorId != null
+          ? { userId: createdRecipe.authorId }
+          : {}),
+        type: RecipeLogType.RECIPE_CREATED,
+        message: recipeData.descriptionOfUpdates,
       });
 
       await this.prisma.recipeWorker.update({

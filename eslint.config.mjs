@@ -34,6 +34,7 @@ export default tseslint.config(
       '@typescript-eslint/no-extraneous-class': 'off',
       '@typescript-eslint/no-magic-numbers': 'off',
       '@typescript-eslint/no-redeclare': 'off',
+      '@typescript-eslint/max-params': ['error', { max: 4 }],
       'prettier/prettier': ['error', { endOfLine: 'auto' }],
     },
   },

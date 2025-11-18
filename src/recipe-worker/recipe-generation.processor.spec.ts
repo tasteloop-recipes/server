@@ -1,6 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 import { getQueueToken } from '@nestjs/bullmq';
-import { RecipeStatus } from '@prisma/client';
+import { RecipeLogType, RecipeStatus } from '@prisma/client';
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
 import type { Job } from 'bullmq';
@@ -10,6 +10,7 @@ import {
   RecipeGenerationProcessor,
   type RecipeGenerationJobData,
 } from './recipe-generation.processor';
+import { RecipeLogsService } from '../recipe-logs/recipe-logs.service';
 
 describe('RecipeGenerationProcessor', () => {
   let moduleRef: TestingModule | null = null;
@@ -20,6 +21,7 @@ describe('RecipeGenerationProcessor', () => {
   let updateMock: jest.Mock = jest.fn();
   let transactionMock: jest.Mock = jest.fn();
   let generateRecipeDataMock: jest.Mock = jest.fn();
+  let createLogMock: jest.Mock = jest.fn();
 
   type TransactionCallback = (tx: {
     recipe: {
@@ -80,6 +82,7 @@ describe('RecipeGenerationProcessor', () => {
       fiber: 3,
     },
     miscNutritionFacts: [{ label: 'Sodium', value: '300', unit: 'mg' }],
+    descriptionOfUpdates: 'Generated initial recipe.',
   };
 
   const mockWorker = {
@@ -95,6 +98,7 @@ describe('RecipeGenerationProcessor', () => {
     updateMock = jest.fn();
     transactionMock = jest.fn();
     generateRecipeDataMock = jest.fn();
+    createLogMock = jest.fn();
 
     moduleRef = await Test.createTestingModule({
       providers: [
@@ -127,6 +131,12 @@ describe('RecipeGenerationProcessor', () => {
           provide: getQueueToken('recipe-image-generation'),
           useValue: {
             add: jest.fn(),
+          },
+        },
+        {
+          provide: RecipeLogsService,
+          useValue: {
+            createLog: createLogMock,
           },
         },
       ],
@@ -192,10 +202,14 @@ describe('RecipeGenerationProcessor', () => {
       generateRecipeDataMock.mockResolvedValueOnce(mockRecipeData);
       transactionMock.mockImplementation(
         async (callback: TransactionCallback) => {
-          await callback({
+          const recipeCreate = jest.fn().mockResolvedValue({
+            id: 'recipe-123',
+            authorId: 'user-1',
+          });
+          return callback({
             recipe: {
               delete: jest.fn(),
-              create: jest.fn(),
+              create: recipeCreate,
             },
             recipeWorker: {
               update: jest.fn(),
@@ -219,6 +233,14 @@ describe('RecipeGenerationProcessor', () => {
           data: { status: RecipeStatus.RECIPE_CREATED },
         }),
       );
+      expect(createLogMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          recipeId: 'recipe-123',
+          userId: 'user-1',
+          type: RecipeLogType.RECIPE_CREATED,
+          message: mockRecipeData.descriptionOfUpdates,
+        }),
+      );
 
       jest.useRealTimers();
     });
@@ -231,10 +253,13 @@ describe('RecipeGenerationProcessor', () => {
       generateRecipeDataMock.mockResolvedValueOnce(mockRecipeData);
       transactionMock.mockImplementation(
         async (callback: TransactionCallback) => {
-          await callback({
+          return callback({
             recipe: {
               delete: jest.fn(),
-              create: jest.fn(),
+              create: jest.fn().mockResolvedValue({
+                id: 'recipe-123',
+                authorId: 'user-1',
+              }),
             },
             recipeWorker: {
               update: jest.fn(),
@@ -302,10 +327,13 @@ describe('RecipeGenerationProcessor', () => {
       generateRecipeDataMock.mockResolvedValueOnce(mockRecipeData);
       transactionMock.mockImplementation(
         async (callback: TransactionCallback) => {
-          await callback({
+          return callback({
             recipe: {
               delete: jest.fn(),
-              create: jest.fn(),
+              create: jest.fn().mockResolvedValue({
+                id: 'recipe-123',
+                authorId: 'user-1',
+              }),
             },
             recipeWorker: {
               update: jest.fn(),
@@ -390,10 +418,13 @@ describe('RecipeGenerationProcessor', () => {
 
       transactionMock.mockImplementation(
         async (callback: TransactionCallback) => {
-          await callback({
+          return callback({
             recipe: {
               delete: jest.fn(),
-              create: jest.fn(),
+              create: jest.fn().mockResolvedValue({
+                id: 'recipe-123',
+                authorId: 'user-1',
+              }),
             },
             recipeWorker: {
               update: jest.fn(),
@@ -423,11 +454,14 @@ describe('RecipeGenerationProcessor', () => {
       generateRecipeDataMock.mockResolvedValueOnce(mockRecipeData);
 
       const deleteRecipeMock = jest.fn();
-      const createRecipeMock = jest.fn();
+      const createRecipeMock = jest.fn().mockResolvedValue({
+        id: 'recipe-123',
+        authorId: 'user-1',
+      });
 
       transactionMock.mockImplementation(
         async (callback: TransactionCallback) => {
-          await callback({
+          return callback({
             recipe: {
               delete: deleteRecipeMock,
               create: createRecipeMock,
@@ -461,10 +495,13 @@ describe('RecipeGenerationProcessor', () => {
       const deleteRecipeMock = jest.fn();
       transactionMock.mockImplementation(
         async (callback: TransactionCallback) => {
-          await callback({
+          return callback({
             recipe: {
               delete: deleteRecipeMock,
-              create: jest.fn(),
+              create: jest.fn().mockResolvedValue({
+                id: 'recipe-123',
+                authorId: 'user-1',
+              }),
             },
             recipeWorker: {
               update: jest.fn(),

@@ -5,6 +5,7 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { QueueModule } from './queue.module';
 import { RecipeGenerationProcessor } from '../recipe-worker/recipe-generation.processor';
 import { RecipeImageGenerationProcessor } from '../recipe-worker/recipe-image-generation.processor';
+import { RecipeLogsModule } from '../recipe-logs/recipe-logs.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { RecipeImageGenerationProcessor } from '../recipe-worker/recipe-image-ge
     BullModule.registerQueue({
       name: 'recipe-image-generation',
     }),
+    RecipeLogsModule,
   ],
   providers: [RecipeGenerationProcessor, RecipeImageGenerationProcessor],
 })
