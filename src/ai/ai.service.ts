@@ -11,11 +11,7 @@ import {
 } from '@aws-sdk/client-s3';
 import { RecipeImage } from '@prisma/client';
 import OpenAI from 'openai';
-import {
-  RecipeData,
-  recipeResponseFormat,
-  recipeValidFormat,
-} from './ai.types';
+import { RecipeData, recipeResponseFormat } from './ai.types';
 import { PrismaService } from '../prisma/prisma.service';
 import { randomUUID } from 'node:crypto';
 
@@ -27,9 +23,7 @@ export class AiService {
     @Inject(S3Client) private readonly objectStorage: S3Client,
   ) {}
 
-  async generateRecipeData(
-    prompt: string,
-  ): Promise<typeof recipeResponseFormat.__output> {
+  async generateRecipeData(prompt: string): Promise<RecipeData> {
     if (this.openai == null) {
       throw new InternalServerErrorException(
         'OpenAI client is not initialized. Please check your configuration.',
@@ -45,39 +39,12 @@ export class AiService {
     }
 
     try {
-      // Step 1: Check moderation
-      const moderation = await this.openai.moderations.create({
-        model: 'omni-moderation-latest',
-        input: sanitizedPrompt,
-      });
-
-      if (moderation.results[0].flagged) {
-        throw new BadRequestException(
-          'The provided prompt violates content policies.',
-        );
-      }
-
-      // Step 2: Determine if prompt is related to recipes
-      const validRecipe = await this.openai.responses.parse({
-        model: 'gpt-5-nano',
-        input: sanitizedPrompt,
-        instructions:
-          'Determine if the user prompt is related to food and cooking recipes. The prompt will be used to generate a cooking recipe if it is relevant.',
-        text: { format: recipeValidFormat },
-      });
-
-      if (validRecipe.output_parsed?.isRecipeRelated === false) {
-        throw new BadRequestException(
-          'The provided prompt does not seem to be related to recipes.',
-        );
-      }
-
-      // Step 3: Generate recipe data
+      // Generate recipe data with moderation and relevance validation
       const response = await this.openai.responses.parse({
         model: 'gpt-5-mini',
         input: sanitizedPrompt,
         instructions:
-          'You are a helpful assistant that provides detailed cooking recipes based on user prompts. All the instructions and details should be should be clear, concise, and easy to follow.',
+          'You are a helpful assistant that provides detailed cooking recipes based on user prompts. Before creating a recipe, you must determine if the prompt is safe, complies with moderation policies, and is clearly about food or cooking. If it violates policies or is not recipe-related, respond with isValid set to false and recipeData as null. Only when the prompt is safe and recipe-related should you set isValid to true and populate recipeData with the detailed recipe. All the instructions and details should be clear, concise, and easy to follow.',
         text: { format: recipeResponseFormat },
       });
 
@@ -89,7 +56,19 @@ export class AiService {
         );
       }
 
-      return parsedRecipe;
+      if (!parsedRecipe.isValid) {
+        throw new BadRequestException(
+          'The provided prompt violates content policies or is not related to recipes.',
+        );
+      }
+
+      if (parsedRecipe.recipeData == null) {
+        throw new InternalServerErrorException(
+          'OpenAI indicated the prompt was valid but did not return recipe data.',
+        );
+      }
+
+      return parsedRecipe.recipeData;
     } catch (error: unknown) {
       if (error instanceof BadRequestException) {
         throw error;
