@@ -1,12 +1,7 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Injectable, Logger } from '@nestjs/common';
-import {
-  Prisma,
-  RecipeLogType,
-  RecipeStatus,
-  RecipeWorker,
-} from '@prisma/client';
+import { Prisma, RecipeLogType, RecipeStatus } from '@prisma/client';
 import type { Queue, Job } from 'bullmq';
 import { PrismaService } from '../prisma/prisma.service';
 import { AiService } from '../ai/ai.service';
@@ -18,6 +13,14 @@ export interface RecipeModificationJobData {
   recipeId: string;
   prompt: string;
 }
+
+// Allowed statuses for processing modification jobs (idempotent pattern)
+// PENDING_MODIFICATIONS is included to allow retries if the process crashes during modification
+const ALLOWED_STATUSES = new Set<RecipeStatus>([
+  RecipeStatus.READY,
+  RecipeStatus.ERROR,
+  RecipeStatus.PENDING_MODIFICATIONS,
+]);
 
 @Injectable()
 @Processor('recipe-modification')
@@ -49,15 +52,35 @@ export class RecipeModificationProcessor extends WorkerHost {
       return;
     }
 
-    const worker = recipe.worker as RecipeWorker | null;
-    if (!worker) {
+    const { worker } = recipe;
+    const workerId = worker.id;
+
+    // Validate worker status before processing
+    if (!ALLOWED_STATUSES.has(worker.status)) {
       this.logger.warn(
-        `Recipe ${recipeId} is missing worker relation, skipping modification job.`,
+        `Worker ${workerId} is in status ${worker.status}; skipping job processing.`,
       );
       return;
     }
 
-    const workerId = worker.id;
+    // Atomically update status to PENDING_MODIFICATIONS to prevent concurrent processing
+    // This also serves as an idempotent check - if another instance updates first, count will be 0
+    const { count: updatedWorkers } = await this.prisma.recipeWorker.updateMany(
+      {
+        where: {
+          id: worker.id,
+          status: { in: Array.from(ALLOWED_STATUSES) },
+        },
+        data: { status: RecipeStatus.PENDING_MODIFICATIONS },
+      },
+    );
+
+    if (updatedWorkers === 0) {
+      this.logger.warn(
+        `Worker ${workerId} status changed before processing; skipping job processing.`,
+      );
+      return;
+    }
 
     try {
       const aiPrompt = this.buildModificationPrompt(recipe, prompt);
@@ -82,9 +105,11 @@ export class RecipeModificationProcessor extends WorkerHost {
         message: generatedRecipe.descriptionOfUpdates,
       });
     } catch (error: unknown) {
+      // Set status to ERROR instead of READY to preserve error state
+      // This allows for visibility into what failed and prevents accidental reprocessing
       await this.prisma.recipeWorker.update({
         where: { id: workerId },
-        data: { status: RecipeStatus.READY },
+        data: { status: RecipeStatus.ERROR },
       });
 
       const errorMessage =
