@@ -6,6 +6,7 @@ import {
   ResolveField,
   Resolver,
 } from '@nestjs/graphql';
+import { Throttle } from '@nestjs/throttler';
 import type { Recipe, MiscNutritionFact } from '@prisma/client';
 import { RecipesPage } from './models/recipes-page.model';
 import { RecipeModel } from './models/recipe.model';
@@ -15,6 +16,7 @@ import { RecipeImageModel } from './models/recipe-image.model';
 import { RecipeIngredientModel } from './models/recipe-ingredient.model';
 import { RecipeWorkerModel } from '../recipe-worker/models/recipe-worker.model';
 import { MiscNutritionFactModel } from './models/misc-nutrition-fact.model';
+import { MUTATION_THROTTLE } from '../common/throttling/throttling.constants';
 
 @Resolver(() => RecipeModel)
 export class RecipesResolver {
@@ -36,6 +38,7 @@ export class RecipesResolver {
     return this.recipesService.findOne(id);
   }
 
+  @Throttle(MUTATION_THROTTLE)
   @Mutation(() => RecipeModel, {
     name: 'modifyRecipe',
     description: 'Modify an existing recipe using an AI prompt',

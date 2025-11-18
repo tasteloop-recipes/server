@@ -1,13 +1,16 @@
 import { Args, Int, Mutation, Query, Resolver } from '@nestjs/graphql';
+import { Throttle } from '@nestjs/throttler';
 import { RecipeStatus } from '@prisma/client';
 import { RecipeWorkerService } from './recipe-worker.service';
 import { RecipeWorkerModel } from './models/recipe-worker.model';
 import { CreateRecipeWorkerInput } from './dto/create-recipe-worker.input';
+import { MUTATION_THROTTLE } from '../common/throttling/throttling.constants';
 
 @Resolver(() => RecipeWorkerModel)
 export class RecipeWorkerResolver {
   constructor(private readonly recipeWorkerService: RecipeWorkerService) {}
 
+  @Throttle(MUTATION_THROTTLE)
   @Mutation(() => RecipeWorkerModel, {
     name: 'create',
     description: 'Create a new recipe worker that will process an AI prompt',

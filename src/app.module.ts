@@ -1,7 +1,7 @@
 import { join } from 'node:path';
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
-import { ThrottlerModule } from '@nestjs/throttler';
+import { ThrottlerModule, minutes } from '@nestjs/throttler';
 import { ApolloDriver, type ApolloDriverConfig } from '@nestjs/apollo';
 import { GraphQLModule } from '@nestjs/graphql';
 import type { Request, Response } from 'express';
@@ -32,8 +32,8 @@ import { RecipeLogsModule } from './recipe-logs/recipe-logs.module';
     }),
     ThrottlerModule.forRoot([
       {
-        ttl: 60000,
-        limit: 10,
+        ttl: minutes(1),
+        limit: 200,
       },
     ]),
     PrismaModule,
