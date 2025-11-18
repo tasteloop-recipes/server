@@ -126,12 +126,7 @@ export class RecipesService {
       throw new NotFoundException(`Recipe with id "${recipeId}" not found`);
     }
 
-    const worker = recipe.worker as RecipeWorker | null;
-    if (!worker) {
-      throw new NotFoundException(
-        `RecipeWorker for recipe "${recipeId}" not found`,
-      );
-    }
+    const { worker } = recipe;
 
     await this.prisma.recipeWorker.update({
       where: { id: worker.id },
