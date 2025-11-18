@@ -11,17 +11,13 @@ import {
   RecipeWorker,
   MiscNutritionFact,
   RecipeStatus,
-  Prisma,
   RecipeLogType,
 } from '@prisma/client';
 import type { Queue } from 'bullmq';
 import { PrismaService } from '../prisma/prisma.service';
 import { RecipesPage } from './models/recipes-page.model';
-import { AiService } from '../ai/ai.service';
-import type { RecipeData } from '../ai/ai.types';
-import { normalizeAllergies } from '../common/allergy.util';
-import { ModifyRecipeResultDto } from './dto/modify-recipe-result.dto';
 import { RecipeLogsService } from '../recipe-logs/recipe-logs.service';
+import type { RecipeModificationJobData } from '../recipe-worker/recipe-modification.processor';
 
 const MAX_PAGE_SIZE = 50;
 
@@ -29,9 +25,8 @@ const MAX_PAGE_SIZE = 50;
 export class RecipesService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly aiService: AiService,
-    @InjectQueue('recipe-image-generation')
-    private readonly recipeImageQueue: Queue<{ workerId: string }>,
+    @InjectQueue('recipe-modification')
+    private readonly recipeModificationQueue: Queue<RecipeModificationJobData>,
     private readonly recipeLogsService: RecipeLogsService,
   ) {}
 
@@ -113,10 +108,7 @@ export class RecipesService {
     });
   }
 
-  async modifyRecipe(
-    recipeId: string,
-    prompt: string,
-  ): Promise<ModifyRecipeResultDto> {
+  async modifyRecipe(recipeId: string, prompt: string): Promise<Recipe> {
     const sanitizedPrompt = prompt.trim();
 
     if (!sanitizedPrompt) {
@@ -126,7 +118,6 @@ export class RecipesService {
     const recipe = await this.prisma.recipe.findUnique({
       where: { id: recipeId },
       include: {
-        ingredients: true,
         worker: true,
       },
     });
@@ -135,8 +126,15 @@ export class RecipesService {
       throw new NotFoundException(`Recipe with id "${recipeId}" not found`);
     }
 
+    const worker = recipe.worker as RecipeWorker | null;
+    if (!worker) {
+      throw new NotFoundException(
+        `RecipeWorker for recipe "${recipeId}" not found`,
+      );
+    }
+
     await this.prisma.recipeWorker.update({
-      where: { id: recipe.worker.id },
+      where: { id: worker.id },
       data: { status: RecipeStatus.PENDING_MODIFICATIONS },
     });
 
@@ -148,138 +146,30 @@ export class RecipesService {
     });
 
     try {
-      const aiPrompt = this.buildModificationPrompt(recipe, sanitizedPrompt);
-      const generatedRecipe = await this.aiService.generateRecipeData(aiPrompt);
-
-      await this.replaceRecipeData(recipe.id, generatedRecipe);
-
-      await this.prisma.recipeWorker.update({
-        where: { id: recipe.worker.id },
-        data: {
-          status: RecipeStatus.RECIPE_CREATED,
+      await this.recipeModificationQueue.add(
+        'modify-recipe',
+        {
+          recipeId: recipe.id,
           prompt: sanitizedPrompt,
         },
-      });
-
-      await this.restartImageGenerationQueue(recipe.worker.id);
-
-      await this.recipeLogsService.createLog({
-        recipeId: recipe.id,
-        ...(recipe.authorId != null ? { userId: recipe.authorId } : {}),
-        type: RecipeLogType.RECIPE_MODIFIED,
-        message: generatedRecipe.descriptionOfUpdates,
-      });
-
-      const updatedRecipe = await this.findOne(recipe.id);
-
-      return {
-        recipe: updatedRecipe,
-        descriptionOfUpdates: generatedRecipe.descriptionOfUpdates,
-      };
+        {
+          attempts: 3,
+          backoff: {
+            type: 'exponential',
+            delay: 1000,
+          },
+          removeOnComplete: true,
+          removeOnFail: false,
+        },
+      );
     } catch (error) {
       await this.prisma.recipeWorker.update({
-        where: { id: recipe.worker.id },
+        where: { id: worker.id },
         data: { status: RecipeStatus.READY },
       });
-
       throw error;
     }
-  }
 
-  private buildModificationPrompt(
-    recipe: Prisma.RecipeGetPayload<{ include: { ingredients: true } }>,
-    userPrompt: string,
-  ): string {
-    const ingredientDetails = recipe.ingredients
-      .map((ingredient) => `- ${ingredient.name}: ${ingredient.amount}`)
-      .join('\n');
-
-    return [
-      'You are updating an existing recipe. Adjust the dish based on the user request while keeping instructions concise and safe.',
-      `Current recipe: ${recipe.name}`,
-      `Description: ${recipe.description}`,
-      'Ingredients:',
-      ingredientDetails || '- No ingredients listed.',
-      'User request for modifications:',
-      userPrompt,
-    ].join('\n\n');
-  }
-
-  private async replaceRecipeData(
-    recipeId: string,
-    recipeData: RecipeData,
-  ): Promise<void> {
-    await this.prisma.$transaction(async (tx) => {
-      await tx.recipeIngredient.deleteMany({ where: { recipeId } });
-      await tx.recipeNutritionFact.deleteMany({ where: { recipeId } });
-      await tx.miscNutritionFact.deleteMany({ where: { recipeId } });
-
-      const { nutritionFacts } = recipeData;
-
-      await tx.recipe.update({
-        where: { id: recipeId },
-        data: {
-          name: recipeData.name,
-          description: recipeData.description,
-          difficulty: recipeData.difficulty,
-          mealTypes: recipeData.mealTypes,
-          countriesOfOrigin: recipeData.countriesOfOrigin,
-          diets: recipeData.diets,
-          allergies: normalizeAllergies(recipeData.allergies),
-          proteinType: recipeData.proteinType,
-          prepTimeMinutes: recipeData.prepTimeMinutes,
-          cookTimeMinutes: recipeData.cookTimeMinutes,
-          preparation: recipeData.preparation,
-          instructions: recipeData.instructions,
-          servingSize: recipeData.servingSize,
-        },
-      });
-
-      await tx.recipeIngredient.createMany({
-        data: recipeData.ingredients.map((ingredient) => ({
-          recipeId,
-          name: ingredient.name,
-          amount: ingredient.amount,
-        })),
-      });
-
-      await tx.recipeNutritionFact.create({
-        data: {
-          recipeId,
-          calories: nutritionFacts.calories,
-          carbs: nutritionFacts.carbs,
-          fat: nutritionFacts.fat,
-          protein: nutritionFacts.protein,
-          fiber: nutritionFacts.fiber,
-        },
-      });
-
-      if (recipeData.miscNutritionFacts.length > 0) {
-        await tx.miscNutritionFact.createMany({
-          data: recipeData.miscNutritionFacts.map((fact) => ({
-            recipeId,
-            label: fact.label,
-            value: fact.value,
-            unit: fact.unit ?? null,
-          })),
-        });
-      }
-    });
-  }
-
-  private async restartImageGenerationQueue(workerId: string): Promise<void> {
-    await this.recipeImageQueue.add(
-      'generate-recipe-image',
-      { workerId },
-      {
-        attempts: 3,
-        backoff: {
-          type: 'exponential',
-          delay: 1000,
-        },
-        removeOnComplete: true,
-        removeOnFail: false,
-      },
-    );
+    return recipe;
   }
 }

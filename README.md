@@ -13,12 +13,17 @@ flowchart LR
     Ai[AiService]
   end
   API -->|Prisma| Postgres[(PostgreSQL)]
-  Service -->|enqueue| BullMQ[(Redis / Valkey)]
-  BullMQ --> GenProc[RecipeGenerationProcessor]
+  Service -->|new recipes| GenQueue[(recipe-generation queue)]
+  Service -->|modify recipes| ModQueue[(recipe-modification queue)]
+  GenQueue --> GenProc[RecipeGenerationProcessor]
+  ModQueue --> ModProc[RecipeModificationProcessor]
   GenProc -->|generateRecipeData| Ai
+  ModProc -->|generateRecipeData| Ai
   Ai --> OpenAI[(OpenAI APIs)]
   GenProc -->|persist recipes| Postgres
+  ModProc -->|persist updates| Postgres
   GenProc -->|enqueue images| ImgQueue[(recipe-image-generation queue)]
+  ModProc -->|enqueue images| ImgQueue
   ImgQueue --> ImgProc[RecipeImageGenerationProcessor]
   ImgProc -->|generateRecipeImage| Ai
   ImgProc --> S3[(S3-compatible storage)]
@@ -28,8 +33,8 @@ flowchart LR
 - `src/app.module.ts` wires the GraphQL runtime, Prisma client, throttling guard, BullMQ connection, and the feature modules (`RecipesModule`, `RecipeWorkerModule`, `AiModule`).
 - `AiService` (in `src/ai`) owns all OpenAI interactions: prompt moderation, structured recipe generation (`recipe-generation` format), and image uploads to object storage.
 - `RecipeWorkerModule` exposes the GraphQL mutations/queries for `RecipeWorker` entities and enqueues BullMQ jobs that run inside the dedicated `queue.worker.ts` process.
-- `RecipeGenerationProcessor` and `RecipeImageGenerationProcessor` (in `src/recipe-worker`) consume jobs, orchestrate AI calls, persist normalized data through the Prisma service, and emit timeline entries through the recipe log service.
-- `RecipesModule` exposes read-only GraphQL queries for recipes, ingredients, nutrition facts, linked workers, uploaded images, and feeds modification requests into the logging service.
+- `RecipeGenerationProcessor`, `RecipeModificationProcessor`, and `RecipeImageGenerationProcessor` (in `src/recipe-worker`) consume jobs, orchestrate AI calls, persist normalized data through the Prisma service, and emit timeline entries through the recipe log service.
+- `RecipesModule` exposes read-only GraphQL queries for recipes, ingredients, nutrition facts, linked workers, uploaded images, and enqueues modification requests while logging the request metadata.
 - `RecipeLogsModule` centralizes audit-style events (recipe creation, image generation, modification requests/completions) and exposes the `recipeLogs` GraphQL query so clients can show a timeline for each recipe.
 
 ## Codebase tour
@@ -38,7 +43,7 @@ flowchart LR
 | --- | --- |
 | `src/main.ts` | Bootstraps the HTTP GraphQL server with Express + Apollo. |
 | `src/ai` | Zod schemas, OpenAI provider, and `AiService` methods that validate prompts, request recipes, and upload generated PNGs. |
-| `src/recipe-worker` | GraphQL resolver/service for `RecipeWorker` plus the BullMQ processors that turn jobs into recipes and images. |
+| `src/recipe-worker` | GraphQL resolver/service for `RecipeWorker` plus the BullMQ processors that turn jobs into recipes, updates, and images. |
 | `src/recipes` | Query resolvers, DTOs, and models that expose paginated recipe data along with related ingredients, images, and nutrition facts. |
 | `src/storage/object-storage.provider.ts` | Factory that configures an S3 client targeted at DigitalOcean Spaces or the bundled MinIO stack. |
 | `src/queue` | BullMQ module configuration and `queue.worker.ts`, which spins up an application context dedicated to processing background jobs. |
@@ -66,20 +71,29 @@ erDiagram
 2. `RecipeWorkerService` enqueues a `recipe-generation` job handled by `RecipeGenerationProcessor`.
 3. `RecipeGenerationProcessor` calls `AiService.generateRecipeData`, upserts a full recipe tree, updates the worker’s status, and emits a follow-up `recipe-image-generation` job.
 4. `RecipeImageGenerationProcessor` loads the recipe + relations, builds the image prompt, calls `AiService.generateRecipeImage`, stores metadata in Prisma, and marks the worker `READY`.
-5. GraphQL queries in `RecipesResolver` expose the hydrated recipe, worker, and image metadata to clients.
+5. `RecipesResolver.modifyRecipe` logs the sanitized request, marks the worker `PENDING_MODIFICATIONS`, and enqueues a `recipe-modification` job.
+6. `RecipeModificationProcessor` reuses `AiService.generateRecipeData` to overwrite the recipe tree, sets the worker back to `RECIPE_CREATED`, emits a new `recipe-image-generation` job, and records a `RECIPE_MODIFIED` log.
+7. GraphQL queries in `RecipesResolver` expose the hydrated recipe, worker, and image metadata to clients.
 
-### Updating recipes without queues
+### Queued recipe modifications
 
-- Use the `modifyRecipe` GraphQL mutation to apply ad-hoc changes to an existing recipe with an updated AI prompt.
-- The mutation accepts the recipe identifier and a prompt, temporarily moves the worker into the `PENDING_MODIFICATIONS` status, calls `AiService.generateRecipeData`, persists the new recipe tree, and re-queues image generation so thumbnails stay in sync.
-- The mutation response is a human-friendly `descriptionOfUpdates` string supplied by the AI response so clients can display a summary of what changed.
-- The Recipe Logs resolver exposes `recipeLogs(recipeId: String!)` so UIs can render a chronological feed of creation, modification requests, modifications, and image generations, using the messages captured from each AI call (e.g., `descriptionOfUpdates` or generated image URLs).
+- Use the `modifyRecipe` GraphQL mutation to request ad-hoc changes; the API sanitizes the prompt, flips the worker to `PENDING_MODIFICATIONS`, records a `MODIFICATION_REQUESTED` log, and enqueues a `recipe-modification` job.
+- The mutation immediately returns the current `RecipeModel`, allowing clients to refresh UI state (e.g., worker status) while the background job runs.
+- `RecipeModificationProcessor` rebuilds the recipe via `AiService.generateRecipeData`, overwrites the recipe tree, re-enqueues image generation, and emits a `RECIPE_MODIFIED` log once the updates succeed.
+- The `recipeLogs(recipeId: String!)` query still surfaces the chronological feed of creation, modification requests/completions, and image generations so UIs can surface progress updates.
 
 Example GraphQL operation:
 
 ```graphql
 mutation ModifyRecipe($recipeId: String!, $prompt: String!) {
-  modifyRecipe(recipeId: $recipeId, prompt: $prompt)
+  modifyRecipe(recipeId: $recipeId, prompt: $prompt) {
+    id
+    name
+    worker {
+      id
+      status
+    }
+  }
 }
 ```
 
@@ -122,7 +136,7 @@ npm run start:queue:dev
 ```
 
 - Spins up `src/queue/queue.worker.ts`.
-- Processes `recipe-generation` and `recipe-image-generation` queues in the same Node process.
+- Processes `recipe-generation`, `recipe-modification`, and `recipe-image-generation` queues in the same Node process.
 - The worker intentionally runs separately from the HTTP server so you can scale replicas independently.
 
 ### Docker workflow

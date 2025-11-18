@@ -1,10 +1,14 @@
-import { NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Decimal } from '@prisma/client/runtime/library';
-import { MealType, RecipeDifficulty } from '@prisma/client';
+import {
+  MealType,
+  RecipeDifficulty,
+  RecipeStatus,
+  RecipeLogType,
+} from '@prisma/client';
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
 import { PrismaService } from '../prisma/prisma.service';
-import { AiService } from '../ai/ai.service';
 import { RecipesService } from './recipes.service';
 import { RecipeLogsService } from '../recipe-logs/recipe-logs.service';
 
@@ -17,9 +21,11 @@ describe('RecipesService', () => {
   let findUniqueMock: jest.Mock = jest.fn();
   let findRecipeImageMock: jest.Mock = jest.fn();
   let findUniqueWorkerMock: jest.Mock = jest.fn();
+  let updateWorkerMock: jest.Mock = jest.fn();
   let findMiscNutritionFactMock: jest.Mock = jest.fn();
   let findRecipeIngredientMock: jest.Mock = jest.fn();
   let createLogMock: jest.Mock = jest.fn();
+  let recipeModificationQueueAddMock: jest.Mock = jest.fn();
 
   const getService = (): RecipesService => {
     if (!service) {
@@ -56,9 +62,11 @@ describe('RecipesService', () => {
     findUniqueMock = jest.fn();
     findRecipeImageMock = jest.fn();
     findUniqueWorkerMock = jest.fn();
+    updateWorkerMock = jest.fn();
     findMiscNutritionFactMock = jest.fn();
     findRecipeIngredientMock = jest.fn();
     createLogMock = jest.fn();
+    recipeModificationQueueAddMock = jest.fn();
 
     moduleRef = await Test.createTestingModule({
       providers: [
@@ -77,6 +85,7 @@ describe('RecipesService', () => {
             },
             recipeWorker: {
               findUnique: findUniqueWorkerMock,
+              update: updateWorkerMock,
             },
             miscNutritionFact: {
               findMany: findMiscNutritionFactMock,
@@ -87,23 +96,15 @@ describe('RecipesService', () => {
           },
         },
         {
-          provide: AiService,
-          useValue: {
-            generateRecipe: jest.fn(),
-            generateRecipeImage: jest.fn(),
-          },
-        },
-        {
           provide: RecipeLogsService,
           useValue: {
             createLog: createLogMock,
           },
         },
         {
-          provide: 'BullQueue_recipe-image-generation',
+          provide: 'BullQueue_recipe-modification',
           useValue: {
-            add: jest.fn(),
-            process: jest.fn(),
+            add: recipeModificationQueueAddMock,
           },
         },
       ],
@@ -193,6 +194,78 @@ describe('RecipesService', () => {
       await expect(getService().findOne('123')).rejects.toThrow(
         'Recipe with id "123" not found',
       );
+    });
+  });
+
+  describe('modifyRecipe', () => {
+    const recipeId = 'recipe-1';
+    const worker = { id: 'worker-1' };
+
+    it('throws BadRequestException when prompt is empty', async () => {
+      await expect(getService().modifyRecipe(recipeId, '   ')).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('throws NotFoundException when recipe is missing', async () => {
+      findUniqueMock.mockResolvedValueOnce(null);
+
+      await expect(
+        getService().modifyRecipe(recipeId, 'update'),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('enqueues modification job and returns recipe', async () => {
+      const recipe = { ...mockRecipe, worker };
+      findUniqueMock.mockResolvedValueOnce(recipe);
+      recipeModificationQueueAddMock.mockResolvedValueOnce(undefined);
+
+      const result = await getService().modifyRecipe(
+        recipeId,
+        '  add more spice  ',
+      );
+
+      expect(updateWorkerMock).toHaveBeenCalledWith({
+        where: { id: worker.id },
+        data: { status: RecipeStatus.PENDING_MODIFICATIONS },
+      });
+      expect(createLogMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          recipeId: recipe.id,
+          type: RecipeLogType.MODIFICATION_REQUESTED,
+          message: 'add more spice',
+        }),
+      );
+      expect(recipeModificationQueueAddMock).toHaveBeenCalledWith(
+        'modify-recipe',
+        { recipeId: recipe.id, prompt: 'add more spice' },
+        expect.objectContaining({
+          attempts: 3,
+        }),
+      );
+
+      expect(result).toBe(recipe);
+    });
+
+    it('resets worker status to READY when enqueue fails', async () => {
+      const recipe = { ...mockRecipe, worker };
+      findUniqueMock.mockResolvedValueOnce(recipe);
+      recipeModificationQueueAddMock.mockRejectedValueOnce(
+        new Error('enqueue failed'),
+      );
+
+      await expect(
+        getService().modifyRecipe(recipeId, 'update'),
+      ).rejects.toThrow('enqueue failed');
+
+      expect(updateWorkerMock).toHaveBeenNthCalledWith(1, {
+        where: { id: worker.id },
+        data: { status: RecipeStatus.PENDING_MODIFICATIONS },
+      });
+      expect(updateWorkerMock).toHaveBeenNthCalledWith(2, {
+        where: { id: worker.id },
+        data: { status: RecipeStatus.READY },
+      });
     });
   });
 
