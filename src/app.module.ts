@@ -32,8 +32,25 @@ import { RecipeLogsModule } from './recipe-logs/recipe-logs.module';
     }),
     ThrottlerModule.forRoot([
       {
-        ttl: 60000,
-        limit: 10,
+        ttl: 60_000,
+        limit: 100,
+      },
+      {
+        name: 'queryGlobal',
+        ttl: 60_000,
+        limit: 1500,
+        generateKey: (_context, _tracker, name): string => name,
+      },
+      {
+        name: 'mutation',
+        ttl: 60_000,
+        limit: 1,
+      },
+      {
+        name: 'mutationGlobal',
+        ttl: 60_000,
+        limit: 15,
+        generateKey: (_context, _tracker, name): string => name,
       },
     ]),
     PrismaModule,
