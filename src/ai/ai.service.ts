@@ -125,7 +125,6 @@ export class AiService {
         model: 'gpt-image-1',
         size: '1024x1024',
         prompt,
-        response_format: 'b64_json',
       });
 
       const b64Image = imageResponse.data?.[0]?.b64_json;
