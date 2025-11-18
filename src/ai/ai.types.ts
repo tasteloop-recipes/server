@@ -73,7 +73,7 @@ const proteinTypeEnum = z
   ] as const)
   .describe('Enum representing the types of protein used in the recipe');
 
-export const recipeDataSchema = z
+const recipeDetailsSchema = z
   .object({
     name: z.string().min(1, 'Recipe name cannot be empty'),
     prompt: z.string().min(1, 'Recipe prompt cannot be empty'),
@@ -108,21 +108,24 @@ export const recipeDataSchema = z
   .strict()
   .describe('Formatted schema for generated recipe data');
 
-export const recipeValidSchema = z
+export const recipeDataSchema = z
   .object({
-    isRecipeRelated: z.boolean(),
+    isValid: z
+      .boolean()
+      .describe(
+        'Indicates if the prompt is valid for recipe generation and complies with moderation policies.',
+      ),
+    recipeData: recipeDetailsSchema
+      .nullable()
+      .describe('The generated recipe data when the prompt is valid.'),
   })
   .strict()
-  .describe('Schema to validate if the prompt is recipe related');
-
-export const recipeValidFormat = zodTextFormat(
-  recipeValidSchema,
-  'recipe_validation',
-);
+  .describe('Schema representing validation and recipe generation result');
 
 export const recipeResponseFormat = zodTextFormat(
   recipeDataSchema,
   'recipe_generation',
 );
 
-export type RecipeData = z.infer<typeof recipeDataSchema>;
+export type RecipeData = z.infer<typeof recipeDetailsSchema>;
+export type RecipeGenerationResponse = z.infer<typeof recipeDataSchema>;
