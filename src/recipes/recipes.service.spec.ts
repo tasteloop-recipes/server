@@ -52,6 +52,9 @@ describe('RecipesService', () => {
     preparation: [],
     instructions: [],
     servingSize: '4 servings',
+    ingredients: [],
+    nutritionFacts: [],
+    miscNutritionFacts: [],
     createdAt: new Date(),
     updatedAt: new Date(),
   };
@@ -249,7 +252,7 @@ describe('RecipesService', () => {
         }),
       );
 
-      expect(result).toBe(recipe);
+      expect(result).toEqual(recipe);
     });
 
     it('resets worker status to READY when enqueue fails', async () => {
