@@ -22,6 +22,7 @@ describe('RecipesService', () => {
   let findRecipeImageMock: jest.Mock = jest.fn();
   let findUniqueWorkerMock: jest.Mock = jest.fn();
   let updateWorkerMock: jest.Mock = jest.fn();
+  let findRecipeNutritionFactMock: jest.Mock = jest.fn();
   let findMiscNutritionFactMock: jest.Mock = jest.fn();
   let findRecipeIngredientMock: jest.Mock = jest.fn();
   let createLogMock: jest.Mock = jest.fn();
@@ -51,6 +52,9 @@ describe('RecipesService', () => {
     preparation: [],
     instructions: [],
     servingSize: '4 servings',
+    ingredients: [],
+    nutritionFacts: [],
+    miscNutritionFacts: [],
     createdAt: new Date(),
     updatedAt: new Date(),
   };
@@ -63,6 +67,7 @@ describe('RecipesService', () => {
     findRecipeImageMock = jest.fn();
     findUniqueWorkerMock = jest.fn();
     updateWorkerMock = jest.fn();
+    findRecipeNutritionFactMock = jest.fn();
     findMiscNutritionFactMock = jest.fn();
     findRecipeIngredientMock = jest.fn();
     createLogMock = jest.fn();
@@ -86,6 +91,9 @@ describe('RecipesService', () => {
             recipeWorker: {
               findUnique: findUniqueWorkerMock,
               update: updateWorkerMock,
+            },
+            recipeNutritionFact: {
+              findMany: findRecipeNutritionFactMock,
             },
             miscNutritionFact: {
               findMany: findMiscNutritionFactMock,
@@ -244,7 +252,7 @@ describe('RecipesService', () => {
         }),
       );
 
-      expect(result).toBe(recipe);
+      expect(result).toEqual(recipe);
     });
 
     it('resets worker status to READY when enqueue fails', async () => {
@@ -434,6 +442,44 @@ describe('RecipesService', () => {
 
       expect(result).toEqual([]);
       expect(findMiscNutritionFactMock).toHaveBeenCalledWith({
+        where: { recipeId },
+      });
+    });
+  });
+
+  describe('findNutritionFacts', () => {
+    it('should return nutrition facts for recipe id', async () => {
+      const recipeId = 'recipe-1';
+      const nutritionFacts = [
+        {
+          id: 'fact-1',
+          recipeId,
+          calories: new Decimal('100.50'),
+          carbs: new Decimal('10.00'),
+          fat: new Decimal('5.00'),
+          protein: new Decimal('15.00'),
+          fiber: new Decimal('2.50'),
+        },
+      ];
+
+      findRecipeNutritionFactMock.mockResolvedValueOnce(nutritionFacts);
+
+      const result = await getService().findNutritionFacts(recipeId);
+
+      expect(result).toEqual(nutritionFacts);
+      expect(findRecipeNutritionFactMock).toHaveBeenCalledWith({
+        where: { recipeId },
+      });
+    });
+
+    it('should return empty array when no nutrition facts exist', async () => {
+      const recipeId = 'recipe-1';
+      findRecipeNutritionFactMock.mockResolvedValueOnce([]);
+
+      const result = await getService().findNutritionFacts(recipeId);
+
+      expect(result).toEqual([]);
+      expect(findRecipeNutritionFactMock).toHaveBeenCalledWith({
         where: { recipeId },
       });
     });

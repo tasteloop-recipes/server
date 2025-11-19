@@ -10,12 +10,14 @@ import {
   RecipeIngredient,
   RecipeWorker,
   MiscNutritionFact,
+  RecipeNutritionFact,
   RecipeStatus,
   RecipeLogType,
 } from '@prisma/client';
 import type { Queue } from 'bullmq';
 import { PrismaService } from '../prisma/prisma.service';
 import { RecipesPage } from './models/recipes-page.model';
+import { RecipeModel } from './models/recipe.model';
 import { RecipeLogsService } from '../recipe-logs/recipe-logs.service';
 import type { RecipeModificationJobData } from '../recipe-worker/recipe-modification.processor';
 
@@ -48,7 +50,7 @@ export class RecipesService {
     const totalPages = Math.max(1, Math.ceil(totalItems / calculatedLimit));
 
     return {
-      data,
+      data: data.map((recipe) => this.mapRecipeToModel(recipe)),
       meta: {
         totalItems,
         totalPages,
@@ -58,7 +60,7 @@ export class RecipesService {
     };
   }
 
-  async findOne(id: string): Promise<Recipe> {
+  async findOne(id: string): Promise<RecipeModel> {
     const recipe = await this.prisma.recipe.findUnique({
       where: { id },
     });
@@ -67,7 +69,7 @@ export class RecipesService {
       throw new NotFoundException(`Recipe with id "${id}" not found`);
     }
 
-    return recipe;
+    return this.mapRecipeToModel(recipe);
   }
 
   async findIngredients(recipeId: string): Promise<RecipeIngredient[]> {
@@ -102,13 +104,17 @@ export class RecipesService {
     });
   }
 
+  async findNutritionFacts(recipeId: string): Promise<RecipeNutritionFact[]> {
+    return this.prisma.recipeNutritionFact.findMany({ where: { recipeId } });
+  }
+
   async findImage(recipeId: string): Promise<RecipeImage | null> {
     return this.prisma.recipeImage.findUnique({
       where: { recipeId },
     });
   }
 
-  async modifyRecipe(recipeId: string, prompt: string): Promise<Recipe> {
+  async modifyRecipe(recipeId: string, prompt: string): Promise<RecipeModel> {
     const sanitizedPrompt = prompt.trim();
 
     if (!sanitizedPrompt) {
@@ -165,6 +171,15 @@ export class RecipesService {
       throw error;
     }
 
-    return recipe;
+    return this.mapRecipeToModel(recipe);
+  }
+
+  private mapRecipeToModel(recipe: Recipe): RecipeModel {
+    return {
+      ...recipe,
+      ingredients: [],
+      nutritionFacts: [],
+      miscNutritionFacts: [],
+    };
   }
 }

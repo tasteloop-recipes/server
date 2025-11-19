@@ -10,6 +10,7 @@ import { RecipeModel } from './models/recipe.model';
 import { RecipeImageModel } from './models/recipe-image.model';
 import { RecipeIngredientModel } from './models/recipe-ingredient.model';
 import { MiscNutritionFactModel } from './models/misc-nutrition-fact.model';
+import { RecipeNutritionFactModel } from './models/recipe-nutrition-fact.model';
 import { RecipesPage, RecipesPageMeta } from './models/recipes-page.model';
 
 const hasTypeFn = (property: {
@@ -67,6 +68,7 @@ describe('GraphQL metadata resolution', () => {
     expect(typeMap.get('prepTimeMinutes')).toBe(Number);
     expect(typeMap.get('cookTimeMinutes')).toBe(Number);
     expect(typeMap.get('ingredients')).toBe(RecipeIngredientModel);
+    expect(typeMap.get('nutritionFacts')).toBe(RecipeNutritionFactModel);
     expect(typeMap.get('miscNutritionFacts')).toBe(MiscNutritionFactModel);
     expect(typeMap.get('image')).toBe(RecipeImageModel);
     const createdAtType = typeMap.get('createdAt');

@@ -7,7 +7,11 @@ import {
   Resolver,
 } from '@nestjs/graphql';
 import { Throttle } from '@nestjs/throttler';
-import type { Recipe, MiscNutritionFact } from '@prisma/client';
+import type {
+  Recipe,
+  MiscNutritionFact,
+  RecipeNutritionFact,
+} from '@prisma/client';
 import { RecipesPage } from './models/recipes-page.model';
 import { RecipeModel } from './models/recipe.model';
 import { RecipesService } from './recipes.service';
@@ -16,6 +20,7 @@ import { RecipeImageModel } from './models/recipe-image.model';
 import { RecipeIngredientModel } from './models/recipe-ingredient.model';
 import { RecipeWorkerModel } from '../recipe-worker/models/recipe-worker.model';
 import { MiscNutritionFactModel } from './models/misc-nutrition-fact.model';
+import { RecipeNutritionFactModel } from './models/recipe-nutrition-fact.model';
 import { MUTATION_THROTTLE } from '../common/throttling/throttling.constants';
 
 @Resolver(() => RecipeModel)
@@ -66,12 +71,30 @@ export class RecipesResolver {
     return this.recipesService.findWorker(recipe.id);
   }
 
+  @ResolveField(() => [RecipeNutritionFactModel], {
+    description: 'Retrieve the nutrition facts associated with the recipe',
+  })
+  async nutritionFacts(
+    @Parent() recipe: RecipeModel,
+  ): Promise<RecipeNutritionFactModel[]> {
+    const facts = await this.recipesService.findNutritionFacts(recipe.id);
+
+    return facts.map<RecipeNutritionFactModel>((fact: RecipeNutritionFact) => ({
+      ...fact,
+      calories: fact.calories.toNumber(),
+      carbs: fact.carbs.toNumber(),
+      fat: fact.fat.toNumber(),
+      protein: fact.protein.toNumber(),
+      fiber: fact.fiber.toNumber(),
+    }));
+  }
+
   @ResolveField(() => [MiscNutritionFactModel], {
     description:
       'Retrieve the miscellaneous nutrition facts associated with the recipe',
   })
   async miscNutritionFacts(
-    @Parent() recipe: Recipe,
+    @Parent() recipe: RecipeModel,
   ): Promise<MiscNutritionFactModel[]> {
     const facts = await this.recipesService.findMiscNutritionFacts(recipe.id);
 
