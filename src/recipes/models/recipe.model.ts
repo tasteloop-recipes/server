@@ -72,16 +72,16 @@ export class RecipeModel {
   servingSize!: string;
 
   @Field(() => [RecipeIngredientModel])
-  ingredients?: RecipeIngredientModel[];
+  ingredients!: RecipeIngredientModel[];
 
   @Field(() => RecipeWorkerModel, { nullable: true })
   worker?: RecipeWorkerModel | null;
 
   @Field(() => [RecipeNutritionFactModel])
-  nutritionFacts?: RecipeNutritionFactModel[];
+  nutritionFacts!: RecipeNutritionFactModel[];
 
   @Field(() => [MiscNutritionFactModel])
-  miscNutritionFacts?: MiscNutritionFactModel[];
+  miscNutritionFacts!: MiscNutritionFactModel[];
 
   @Field(() => RecipeImageModel, { nullable: true })
   image?: RecipeImageModel | null;
