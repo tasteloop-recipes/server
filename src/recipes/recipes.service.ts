@@ -10,6 +10,7 @@ import {
   RecipeIngredient,
   RecipeWorker,
   MiscNutritionFact,
+  RecipeNutritionFact,
   RecipeStatus,
   RecipeLogType,
 } from '@prisma/client';
@@ -100,6 +101,10 @@ export class RecipesService {
     return this.prisma.miscNutritionFact.findMany({
       where: { recipeId },
     });
+  }
+
+  async findNutritionFacts(recipeId: string): Promise<RecipeNutritionFact[]> {
+    return this.prisma.recipeNutritionFact.findMany({ where: { recipeId } });
   }
 
   async findImage(recipeId: string): Promise<RecipeImage | null> {
