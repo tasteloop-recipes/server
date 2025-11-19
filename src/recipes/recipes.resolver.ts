@@ -75,7 +75,7 @@ export class RecipesResolver {
     description: 'Retrieve the nutrition facts associated with the recipe',
   })
   async nutritionFacts(
-    @Parent() recipe: Recipe,
+    @Parent() recipe: RecipeModel,
   ): Promise<RecipeNutritionFactModel[]> {
     const facts = await this.recipesService.findNutritionFacts(recipe.id);
 
@@ -94,7 +94,7 @@ export class RecipesResolver {
       'Retrieve the miscellaneous nutrition facts associated with the recipe',
   })
   async miscNutritionFacts(
-    @Parent() recipe: Recipe,
+    @Parent() recipe: RecipeModel,
   ): Promise<MiscNutritionFactModel[]> {
     const facts = await this.recipesService.findMiscNutritionFacts(recipe.id);
 
