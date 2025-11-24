@@ -42,7 +42,7 @@
     "@nestjs/throttler": "^6.4.0",
     "@prisma/client": "^6.19.0",
     "bullmq": "^5.63.2",
-    "class-validator": "^0.14.2",
+    "class-validator": "^0.14.3",
     "graphql": "^16.9.0",
     "openai": "^6.9.0",
     "reflect-metadata": "^0.2.2",
