@@ -54,7 +54,7 @@
   },
   "devDependencies": {
     "@as-integrations/express5": "^1.1.2",
-    "@eslint/eslintrc": "^3.2.0",
+    "@eslint/eslintrc": "^3.3.3",
     "@eslint/js": "^9.39.1",
     "@nestjs/cli": "^11.0.0",
     "@nestjs/schematics": "^11.0.0",
