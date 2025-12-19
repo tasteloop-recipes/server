@@ -64,7 +64,7 @@
     "@types/node": "^24.10.1",
     "@types/supertest": "^6.0.2",
     "class-transformer": "^0.5.1",
-    "eslint": "^9.39.1",
+    "eslint": "^9.39.2",
     "eslint-config-prettier": "^10.0.1",
     "eslint-plugin-prettier": "^5.2.2",
     "globals": "^16.0.0",
