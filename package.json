@@ -40,7 +40,7 @@
     "@nestjs/graphql": "^13.0.1",
     "@nestjs/platform-express": "^11.1.9",
     "@nestjs/throttler": "^6.4.0",
-    "@prisma/client": "^6.19.0",
+    "@prisma/client": "^7.2.0",
     "bullmq": "^5.66.0",
     "class-validator": "^0.14.3",
     "graphql": "^16.9.0",
